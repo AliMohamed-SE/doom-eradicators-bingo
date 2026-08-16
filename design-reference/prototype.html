@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #16130f; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  a { color: #6bd8ff; text-decoration: none; }
+  a:hover { color: #ffd77a; }
+  .only-wide { display: none; }
+  @media (min-width: 940px) { .only-wide { display: block; } .only-narrow { display: none; } }
+  .sx::-webkit-scrollbar { height: 6px; }
+  .sx::-webkit-scrollbar-thumb { background: #6b5c44; }
+  input, select, button, textarea { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #16130f; background-image: radial-gradient(circle at 50% 0%, #2a2419 0%, #16130f 70%); font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e8dcc0; padding-bottom: 44px">
+
+  <sc-if value="{{ needsLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px">
+      <div style="width: 100%; max-width: 540px; border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); box-shadow: 0 0 0 2px #17130d, 0 14px 40px rgba(0,0,0,.6); padding: 18px">
+        <div style="text-align: center; padding: 6px 0 14px">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; color: #ff981f; letter-spacing: 1px; text-shadow: 2px 2px 0 #000">DOOM ERADICATORS</div>
+          <div style="font-size: 15px; color: #c8b98f; margin-top: 6px">Celeris August Bingo</div>
+        </div>
+        <div style="border: 2px solid #6b5c44; background: #d8ccb0; color: #2b2318; padding: 14px">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; margin-bottom: 12px; text-align: center">WHO ARE YA?</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px">
+            <sc-for list="{{ rosterView }}" as="p" hint-placeholder-count="16">
+              <button type="button" onClick="{{ p.pick }}" style="font-size: 15px; padding: 12px 8px; min-height: 46px; cursor: pointer; border: 2px solid #6b5c44; background: linear-gradient(#4a4030, #3a3226); color: #ffe9a8; text-align: center" style-hover="border-color: #ff981f; color: #fff">{{ p.name }}</button>
+            </sc-for>
+          </div>
+          <div style="font-size: 13px; color: #5d5240; margin-top: 12px; text-align: center">Remembered on this device. The leader has his own link.</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ needsProfile }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px">
+      <div style="width: 100%; max-width: 560px; border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); box-shadow: 0 0 0 2px #17130d, 0 14px 40px rgba(0,0,0,.6); padding: 18px">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #ff981f; text-shadow: 2px 2px 0 #000">GEAR CHECK · {{ formWho }}</div>
+        <div style="font-size: 15px; color: #a2957a; margin: 8px 0 16px">Two things the leader needs before you touch the board.</div>
+
+        <div style="border: 2px solid #6b5c44; background: #241e16; padding: 12px; margin-bottom: 12px">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ffe08a; margin-bottom: 10px">1 · MEGA-RARES YOU OWN</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px">
+            <button type="button" onClick="{{ cardScythe.toggle }}" style="cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 62px; padding: 10px; border: 2px solid {{ cardScythe.border }}; background: {{ cardScythe.bg }}; color: {{ cardScythe.color }}">
+              <img src="https://oldschool.runescape.wiki/images/Scythe_of_vitur.png" alt="Scythe of vitur" style="width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto" />
+              <span style="font-size: 14px; line-height: 1.2">Scythe of vitur<br /><span style="font-size: 12px; color: #a2957a">{{ cardScythe.stateLabel }}</span></span>
+            </button>
+            <button type="button" onClick="{{ cardShadow.toggle }}" style="cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 62px; padding: 10px; border: 2px solid {{ cardShadow.border }}; background: {{ cardShadow.bg }}; color: {{ cardShadow.color }}">
+              <img src="https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png" alt="Tumeken's shadow" style="width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto" />
+              <span style="font-size: 14px; line-height: 1.2">Tumeken's shadow<br /><span style="font-size: 12px; color: #a2957a">{{ cardShadow.stateLabel }}</span></span>
+            </button>
+            <button type="button" onClick="{{ cardTbow.toggle }}" style="cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 62px; padding: 10px; border: 2px solid {{ cardTbow.border }}; background: {{ cardTbow.bg }}; color: {{ cardTbow.color }}">
+              <img src="https://oldschool.runescape.wiki/images/Twisted_bow.png" alt="Twisted bow" style="width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto" />
+              <span style="font-size: 14px; line-height: 1.2">Twisted bow<br /><span style="font-size: 12px; color: #a2957a">{{ cardTbow.stateLabel }}</span></span>
+            </button>
+          </div>
+          <div style="font-size: 13px; color: #a2957a; margin-top: 9px">None, one, or all three. Whatever's true.</div>
+        </div>
+
+        <div style="border: 2px solid #6b5c44; background: #241e16; padding: 12px">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ffe08a; margin-bottom: 10px">2 · YOUR TASK</div>
+          <input type="text" value="{{ formTask }}" onChange="{{ setFormTask }}" placeholder="e.g. Slayer task: Basilisk Knights, or grinding TOA" style="width: 100%; font-size: 15px; padding: 12px; min-height: 48px; border: 2px solid #6b5c44; background: #d8ccb0; color: #2b2318" />
+        </div>
+
+        <button type="button" onClick="{{ saveProfile }}" style="width: 100%; margin-top: 14px; cursor: pointer; min-height: 54px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 15px; border: 2px solid #4f8a3c; background: #2f4229; color: #dff7d0">TO THE BOARD</button>
+        <div style="font-size: 13px; color: #a2957a; margin-top: 10px; text-align: center">Change both any time under MY SETUP.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ appReady }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="position: sticky; top: 0; z-index: 40; border-bottom: 2px solid #6b5c44; background: linear-gradient(#3e3529, #2b2419)">
+        <div style="max-width: 1280px; margin: 0 auto; padding: 10px 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+          <div style="flex: 1 1 auto; min-width: 150px">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #ff981f; text-shadow: 2px 2px 0 #000; letter-spacing: .5px">DOOM ERADICATORS</div>
+            <div style="font-size: 13px; color: #a2957a">{{ whoami }}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <div style="border: 2px solid #6b5c44; background: #241e16; padding: 5px 10px; text-align: center">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">POINTS</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; color: #ffff5c; text-shadow: 1px 1px 0 #000">{{ score.total }}</div>
+            </div>
+            <sc-if value="{{ isLeader }}" hint-placeholder-val="{{ false }}">
+              <div style="border: 2px solid #a8862c; background: #3a2f18; color: #ffb347; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; min-height: 42px; display: flex; align-items: center">LEADER</div>
+            </sc-if>
+            <button type="button" onClick="{{ switchUser }}" style="cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; min-height: 42px; border: 2px solid #6b5c44; background: #332b21; color: #a2957a">SWITCH</button>
+          </div>
+        </div>
+        <div style="max-width: 1280px; margin: 0 auto; padding: 0 8px 8px; display: flex; gap: 6px; overflow-x: auto" class="sx">
+          <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+            <button type="button" onClick="{{ tb.go }}" style="flex: 0 0 auto; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px 12px; min-height: 42px; border: 2px solid {{ tb.border }}; background: {{ tb.bg }}; color: {{ tb.color }}">{{ tb.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="max-width: 1280px; margin: 0 auto; padding: 12px">
+
+        <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <sc-if value="{{ hasFocus }}" hint-placeholder-val="{{ false }}">
+              <div style="border: 2px solid #a8862c; background: linear-gradient(#4a3a1c, #382c15); padding: 10px 12px; margin-bottom: 12px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ffb347; margin-bottom: 8px">TEAM FOCUS</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                  <sc-for list="{{ focusList }}" as="f" hint-placeholder-count="2">
+                    <span style="border: 1px solid #a8862c; background: #241e16; color: #ffe08a; padding: 5px 10px; font-size: 14px">{{ f.label }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <div class="only-narrow">
+              <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px" class="sx">
+                <sc-for list="{{ regionsView }}" as="rg" hint-placeholder-count="9">
+                  <button type="button" onClick="{{ rg.select }}" style="flex: 0 0 auto; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; min-height: 44px; border: 2px solid {{ rg.chipBorder }}; background: {{ rg.chipBg }}; color: {{ rg.chipColor }}">{{ rg.chipLabel }}</button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ hasCurrent }}" hint-placeholder-val="{{ true }}">
+                <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); padding: 10px">
+                  <button type="button" onClick="{{ current.openRegion }}" style="width: 100%; cursor: pointer; text-align: left; border: none; background: none; padding: 0 0 10px; color: inherit">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #ff981f">{{ current.name }}</span>
+                      <span style="font-size: 14px; color: {{ current.lockColor }}">{{ current.lockLabel }}</span>
+                    </div>
+                    <div style="font-size: 14px; color: #a2957a; margin-top: 5px">{{ current.summaryLine }} · tap for region details</div>
+                  </button>
+                  <sc-if value="{{ current.complete }}" hint-placeholder-val="{{ false }}">
+                    <div style="border: 2px solid #4fa05f; background: #1c4a2a; color: #b6f5c4; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 9px 10px; margin-bottom: 10px; text-align: center">{{ current.completeLabel }}</div>
+                  </sc-if>
+                  <sc-if value="{{ current.hasBridge }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{ current.bridge.open }}" style="width: 100%; cursor: pointer; text-align: left; border: 3px solid {{ current.bridge.border }}; background: {{ current.bridge.bg }}; color: {{ current.bridge.color }}; padding: 11px; margin-bottom: 10px; min-height: 56px">
+                      <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: {{ current.bridge.headColor }}">{{ current.bridge.heading }}</span>
+                      <span style="display: block; font-size: 16px; margin-top: 4px">{{ current.bridge.label }}</span>
+                      <span style="display: block; font-size: 13px; color: #c8b98f; margin-top: 3px; line-height: 1.3">{{ current.bridge.sub }}</span>
+                    </button>
+                  </sc-if>
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px">
+                    <sc-for list="{{ current.tiles }}" as="tl" hint-placeholder-count="9">
+                      <div style="aspect-ratio: 1 / 1">
+                        <sc-if value="{{ tl.clickable }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ tl.open }}" style="cursor: pointer; width: 100%; height: 100%; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 3px; text-align: center; border: 2px solid {{ tl.border }}; outline: {{ tl.outline }}; background: {{ tl.bg }}; color: {{ tl.color }}">
+                            <span style="display: flex; align-items: center; justify-content: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: {{ tl.badgeColor }}"><span>{{ tl.badge }}</span><sc-if value="{{ tl.hasRules }}" hint-placeholder-val="{{ false }}"><span title="This tile has its own rules" style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border: 1px solid #a8862c; background: #3a2f18; color: #ffb347; font-size: 10px; line-height: 1">?</span></sc-if></span>
+                            <span style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; justify-content: center; overflow: hidden">
+                              <span style="font-size: 13px; line-height: 1.1">{{ tl.name }}</span>
+                              <span style="font-size: 11px; line-height: 1.15; color: #a2957a; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden">{{ tl.objective }}</span>
+                            </span>
+                            <span style="display: flex; flex-direction: column; align-items: stretch; gap: 3px; width: 100%">
+                              <span style="font-size: 12px; color: {{ tl.countColor }}">{{ tl.count }}</span>
+                              <sc-if value="{{ tl.hasIntent }}" hint-placeholder-val="{{ false }}">
+                                <span style="display: flex; height: 4px; gap: 1px; width: 100%">
+                                  <span style="background: #4fa05f; width: {{ tl.wantW }}"></span>
+                                  <span style="background: #a8862c; width: {{ tl.okW }}"></span>
+                                  <span style="background: #8a4a3a; width: {{ tl.noW }}"></span>
+                                </span>
+                              </sc-if>
+                            </span>
+                          </button>
+                        </sc-if>
+                        <sc-if value="{{ tl.frozen }}" hint-placeholder-val="{{ false }}">
+                          <div style="width: 100%; height: 100%; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center; border: 2px solid #4fa05f; background: #1c4a2a; color: #b6f5c4">
+                            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #7fd695">DONE</span>
+                            <span style="font-size: 13px; line-height: 1.1">{{ tl.name }}</span>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div class="only-wide">
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px">
+                <sc-for list="{{ regionsView }}" as="rg" hint-placeholder-count="9">
+                  <div style="border: 2px solid {{ rg.panelBorder }}; background: linear-gradient(#3e3529, #2f281f); padding: 9px; opacity: {{ rg.panelOpacity }}">
+                    <button type="button" onClick="{{ rg.openRegion }}" style="width: 100%; cursor: pointer; text-align: left; border: none; background: none; padding: 0 0 8px; color: inherit">
+                      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 6px">
+                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: {{ rg.nameColor }}">{{ rg.name }}</span>
+                        <span style="font-size: 13px; color: {{ rg.lockColor }}">{{ rg.lockLabel }}</span>
+                      </div>
+                      <div style="font-size: 12px; color: #a2957a; margin-top: 3px">{{ rg.summaryLine }}</div>
+                    </button>
+                    <sc-if value="{{ rg.complete }}" hint-placeholder-val="{{ false }}">
+                      <div style="border: 2px solid #4fa05f; background: #1c4a2a; color: #b6f5c4; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 7px; margin-bottom: 7px; text-align: center">{{ rg.completeLabel }}</div>
+                    </sc-if>
+                    <sc-if value="{{ rg.hasBridge }}" hint-placeholder-val="{{ true }}">
+                      <button type="button" onClick="{{ rg.bridge.open }}" style="width: 100%; margin-bottom: 7px; cursor: pointer; text-align: left; padding: 8px; min-height: 46px; border: 3px solid {{ rg.bridge.border }}; background: {{ rg.bridge.bg }}; color: {{ rg.bridge.color }}">
+                        <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: {{ rg.bridge.headColor }}">{{ rg.bridge.heading }}</span>
+                        <span style="display: block; font-size: 14px; margin-top: 3px">{{ rg.bridge.label }}</span>
+                        <span style="display: block; font-size: 11px; color: #c8b98f; margin-top: 2px; line-height: 1.25">{{ rg.bridge.sub }}</span>
+                      </button>
+                    </sc-if>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px">
+                      <sc-for list="{{ rg.tiles }}" as="tl" hint-placeholder-count="9">
+                        <div style="aspect-ratio: 1 / 1">
+                          <sc-if value="{{ tl.clickable }}" hint-placeholder-val="{{ true }}">
+                            <button type="button" onClick="{{ tl.open }}" style="cursor: pointer; width: 100%; height: 100%; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; border: 1px solid {{ tl.border }}; outline: {{ tl.outline }}; background: {{ tl.bg }}; color: {{ tl.color }}">
+                              <span style="display: flex; align-items: center; justify-content: center; gap: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: {{ tl.badgeColor }}"><span>{{ tl.badge }}</span><sc-if value="{{ tl.hasRules }}" hint-placeholder-val="{{ false }}"><span title="This tile has its own rules" style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border: 1px solid #a8862c; background: #3a2f18; color: #ffb347; font-size: 9px; line-height: 1">?</span></sc-if></span>
+                              <span style="display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; justify-content: center; overflow: hidden">
+                                <span style="font-size: 11px; line-height: 1.05">{{ tl.name }}</span>
+                                <span style="font-size: 9px; line-height: 1.15; color: #a2957a; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden">{{ tl.objective }}</span>
+                              </span>
+                              <span style="display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%">
+                                <span style="font-size: 10px; color: {{ tl.countColor }}">{{ tl.count }}</span>
+                                <sc-if value="{{ tl.hasIntent }}" hint-placeholder-val="{{ false }}">
+                                  <span style="display: flex; height: 3px; gap: 1px; width: 100%">
+                                    <span style="background: #4fa05f; width: {{ tl.wantW }}"></span>
+                                    <span style="background: #a8862c; width: {{ tl.okW }}"></span>
+                                    <span style="background: #8a4a3a; width: {{ tl.noW }}"></span>
+                                  </span>
+                                </sc-if>
+                              </span>
+                            </button>
+                          </sc-if>
+                          <sc-if value="{{ tl.frozen }}" hint-placeholder-val="{{ false }}">
+                            <div style="width: 100%; height: 100%; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; border: 1px solid #4fa05f; background: #1c4a2a; color: #b6f5c4">
+                              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #7fd695">DONE</span>
+                              <span style="font-size: 11px; line-height: 1.05">{{ tl.name }}</span>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border: 2px solid #6b5c44; background: #241e16; padding: 10px 12px; margin-top: 12px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">SCORE</span>
+              <span style="font-size: 14px">Rows <b style="color: #ffff5c">{{ score.rows }}</b></span>
+              <span style="font-size: 14px">Columns <b style="color: #ffff5c">{{ score.cols }}</b></span>
+              <span style="font-size: 14px">Middles <b style="color: #ffff5c">{{ score.mids }}</b></span>
+              <span style="font-size: 14px">Blackouts <b style="color: #ffff5c">{{ score.blackouts }}</b></span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #7fd695">TOTAL {{ score.total }}</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); padding: 12px; margin-bottom: 12px">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #ff981f">PRE-EVENT PLANNING · {{ formWho }}</div>
+              <div style="font-size: 15px; color: #c8b98f; margin-top: 6px; line-height: 1.35; text-wrap: pretty">Go through the board and say what you'd take. Everyone's answers show up on the tiles themselves, so the team can see where the interest is before the event starts.</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 14px; align-items: center">
+                <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 8px; background: #4fa05f"></span>Want it</span>
+                <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 8px; background: #a8862c"></span>Willing</span>
+                <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 8px; background: #8a4a3a"></span>Won't</span>
+                <span style="color: #a2957a">You: {{ planTotals }}</span>
+              </div>
+            </div>
+            <div class="only-narrow">
+              <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px" class="sx">
+                <sc-for list="{{ planRegions }}" as="rg" hint-placeholder-count="9">
+                  <button type="button" onClick="{{ rg.select }}" style="flex: 0 0 auto; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; min-height: 44px; border: 2px solid {{ rg.chipBorder }}; background: {{ rg.chipBg }}; color: {{ rg.chipColor }}">{{ rg.chipLabel }}</button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ hasPlanCurrent }}" hint-placeholder-val="{{ true }}">
+                <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); padding: 10px">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #ff981f">{{ planCurrent.name }}</div>
+                  <div style="font-size: 14px; color: #a2957a; margin: 5px 0 10px">{{ planCurrent.summaryLine }}</div>
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px">
+                    <sc-for list="{{ planCurrent.tiles }}" as="tl" hint-placeholder-count="9">
+                      <div style="aspect-ratio: 1 / 1">
+                        <sc-if value="{{ tl.clickable }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ tl.open }}" style="cursor: pointer; width: 100%; height: 100%; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 3px; text-align: center; border: 2px solid {{ tl.border }}; background: {{ tl.bg }}; color: {{ tl.color }}">
+                            <span style="display: flex; align-items: center; justify-content: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: {{ tl.badgeColor }}"><span>{{ tl.badge }}</span><sc-if value="{{ tl.hasRules }}" hint-placeholder-val="{{ false }}"><span title="This tile has its own rules" style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border: 1px solid #a8862c; background: #3a2f18; color: #ffb347; font-size: 10px; line-height: 1">?</span></sc-if></span>
+                            <span style="font-size: 13px; line-height: 1.1; overflow: hidden">{{ tl.name }}</span>
+                            <span style="display: flex; flex-direction: column; align-items: stretch; gap: 3px; width: 100%">
+                              <span style="font-size: 12px; color: {{ tl.countColor }}">{{ tl.count }}</span>
+                              <sc-if value="{{ tl.hasIntent }}" hint-placeholder-val="{{ false }}">
+                                <span style="display: flex; height: 4px; gap: 1px; width: 100%">
+                                  <span style="background: #4fa05f; width: {{ tl.wantW }}"></span>
+                                  <span style="background: #a8862c; width: {{ tl.okW }}"></span>
+                                  <span style="background: #8a4a3a; width: {{ tl.noW }}"></span>
+                                </span>
+                              </sc-if>
+                            </span>
+                          </button>
+                        </sc-if>
+                        <sc-if value="{{ tl.frozen }}" hint-placeholder-val="{{ false }}">
+                          <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px solid #6b5c44; background: #2a251e; color: #8a7f6d; font-size: 13px">{{ tl.name }}</div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div class="only-wide">
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px">
+                <sc-for list="{{ planRegions }}" as="rg" hint-placeholder-count="9">
+                  <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #2f281f); padding: 9px">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ff981f">{{ rg.name }}</div>
+                    <div style="font-size: 12px; color: #a2957a; margin: 3px 0 8px">{{ rg.summaryLine }}</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px">
+                      <sc-for list="{{ rg.tiles }}" as="tl" hint-placeholder-count="9">
+                        <div style="aspect-ratio: 1 / 1">
+                          <sc-if value="{{ tl.clickable }}" hint-placeholder-val="{{ true }}">
+                            <button type="button" onClick="{{ tl.open }}" style="cursor: pointer; width: 100%; height: 100%; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; border: 1px solid {{ tl.border }}; background: {{ tl.bg }}; color: {{ tl.color }}">
+                              <span style="display: flex; align-items: center; justify-content: center; gap: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: {{ tl.badgeColor }}"><span>{{ tl.badge }}</span><sc-if value="{{ tl.hasRules }}" hint-placeholder-val="{{ false }}"><span title="This tile has its own rules" style="display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border: 1px solid #a8862c; background: #3a2f18; color: #ffb347; font-size: 9px; line-height: 1">?</span></sc-if></span>
+                              <span style="font-size: 11px; line-height: 1.05; overflow: hidden">{{ tl.name }}</span>
+                              <span style="display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%">
+                                <span style="font-size: 10px; color: {{ tl.countColor }}">{{ tl.count }}</span>
+                                <sc-if value="{{ tl.hasIntent }}" hint-placeholder-val="{{ false }}">
+                                  <span style="display: flex; height: 3px; gap: 1px; width: 100%">
+                                    <span style="background: #4fa05f; width: {{ tl.wantW }}"></span>
+                                    <span style="background: #a8862c; width: {{ tl.okW }}"></span>
+                                    <span style="background: #8a4a3a; width: {{ tl.noW }}"></span>
+                                  </span>
+                                </sc-if>
+                              </span>
+                            </button>
+                          </sc-if>
+                          <sc-if value="{{ tl.frozen }}" hint-placeholder-val="{{ false }}">
+                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; border: 1px solid #6b5c44; background: #2a251e; color: #8a7f6d; font-size: 11px">{{ tl.name }}</div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isMine }}" hint-placeholder-val="{{ false }}">
+          <div style="border: 2px solid #4f8a3c; background: linear-gradient(#33402c, #29331f); padding: 12px; max-width: 620px">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #b6f5c4; margin-bottom: 10px">TILES YOU'RE ON</div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <sc-for list="{{ myOn }}" as="m" hint-placeholder-count="2">
+                <button type="button" onClick="{{ m.open }}" style="cursor: pointer; text-align: left; font-size: 15px; padding: 11px; min-height: 48px; border: 2px solid #4f8a3c; background: #2f4229; color: #dff7d0">{{ m.name }}<span style="color: #8fbf85; font-size: 13px"> · {{ m.sub }}</span></button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ noOn }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size: 14px; color: #8fbf85">Nothing yet. Open any tile and hit “I'm on this”.</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isSetup }}" hint-placeholder-val="{{ false }}">
+          <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); padding: 12px; max-width: 620px">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #ff981f; margin-bottom: 4px">MY SETUP · {{ formWho }}</div>
+            <div style="font-size: 14px; color: #a2957a; margin-bottom: 12px">Keep this honest, the leader plans around it.</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ffe08a; margin-bottom: 8px">MEGA-RARES</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px">
+              <button type="button" onClick="{{ cardScythe.toggle }}" style="cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 62px; padding: 10px; border: 2px solid {{ cardScythe.border }}; background: {{ cardScythe.bg }}; color: {{ cardScythe.color }}">
+                <img src="https://oldschool.runescape.wiki/images/Scythe_of_vitur.png" alt="Scythe of vitur" style="width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto" />
+                <span style="font-size: 14px; line-height: 1.2">Scythe of vitur<br /><span style="font-size: 12px; color: #a2957a">{{ cardScythe.stateLabel }}</span></span>
+              </button>
+              <button type="button" onClick="{{ cardShadow.toggle }}" style="cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 62px; padding: 10px; border: 2px solid {{ cardShadow.border }}; background: {{ cardShadow.bg }}; color: {{ cardShadow.color }}">
+                <img src="https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png" alt="Tumeken's shadow" style="width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto" />
+                <span style="font-size: 14px; line-height: 1.2">Tumeken's shadow<br /><span style="font-size: 12px; color: #a2957a">{{ cardShadow.stateLabel }}</span></span>
+              </button>
+              <button type="button" onClick="{{ cardTbow.toggle }}" style="cursor: pointer; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 62px; padding: 10px; border: 2px solid {{ cardTbow.border }}; background: {{ cardTbow.bg }}; color: {{ cardTbow.color }}">
+                <img src="https://oldschool.runescape.wiki/images/Twisted_bow.png" alt="Twisted bow" style="width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto" />
+                <span style="font-size: 14px; line-height: 1.2">Twisted bow<br /><span style="font-size: 12px; color: #a2957a">{{ cardTbow.stateLabel }}</span></span>
+              </button>
+            </div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ffe08a; margin: 14px 0 8px">MY TASK</div>
+            <input type="text" value="{{ formTask }}" onChange="{{ setFormTask }}" placeholder="What are you grinding right now?" style="width: 100%; font-size: 15px; padding: 12px; min-height: 48px; border: 2px solid #6b5c44; background: #d8ccb0; color: #2b2318" />
+            <button type="button" onClick="{{ saveProfile }}" style="width: 100%; margin-top: 12px; cursor: pointer; min-height: 50px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 14px; border: 2px solid #4f8a3c; background: #2f4229; color: #dff7d0">{{ saveLabel }}</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}">
+          <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); padding: 12px">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #ff981f; margin-bottom: 10px">THE ROSTER</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px">
+              <sc-for list="{{ teamView }}" as="pl" hint-placeholder-count="17">
+                <div style="border: 2px solid {{ pl.border }}; background: #2f281f; padding: 10px">
+                  <div style="display: flex; justify-content: space-between; gap: 8px; align-items: center">
+                    <span style="font-size: 16px; color: #ffe9a8">{{ pl.name }}</span>
+                    <span style="display: flex; gap: 4px; align-items: center">
+                      <sc-if value="{{ pl.hasScythe }}" hint-placeholder-val="{{ false }}"><img src="https://oldschool.runescape.wiki/images/Scythe_of_vitur.png" alt="Scythe of vitur" title="Scythe of vitur" style="width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated" /></sc-if>
+                      <sc-if value="{{ pl.hasShadow }}" hint-placeholder-val="{{ false }}"><img src="https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png" alt="Tumeken's shadow" title="Tumeken's shadow" style="width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated" /></sc-if>
+                      <sc-if value="{{ pl.hasTbow }}" hint-placeholder-val="{{ false }}"><img src="https://oldschool.runescape.wiki/images/Twisted_bow.png" alt="Twisted bow" title="Twisted bow" style="width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated" /></sc-if>
+                    </span>
+                  </div>
+                  <div style="font-size: 14px; color: #c8b98f; margin-top: 5px">{{ pl.taskLine }}</div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px">
+                    <sc-for list="{{ pl.tiles }}" as="tt" hint-placeholder-count="2">
+                      <button type="button" onClick="{{ tt.open }}" style="cursor: pointer; font-size: 14px; padding: 8px 10px; min-height: 40px; border: 2px solid #4f8a3c; background: #2f4229; color: #dff7d0">{{ tt.name }}</button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ pl.idle }}" hint-placeholder-val="{{ true }}">
+                    <div style="font-size: 14px; color: #a2957a; margin-top: 8px">Not on anything</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRules }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 12px; max-width: 860px">
+            <div style="border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #332b21); padding: 12px">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #ff981f">EVENT RULES</div>
+              <div style="font-size: 14px; color: #c8b98f; margin-top: 6px; line-height: 1.35; text-wrap: pretty">Tiles marked <span style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border: 1px solid #a8862c; color: #ffb347; font-family: 'IBM Plex Mono', monospace; font-size: 10px">?</span> on the board have their own rules. Open the tile to read them.</div>
+            </div>
+
+            <sc-for list="{{ ruleSections }}" as="sec" hint-placeholder-count="5">
+              <div style="border: 2px solid #6b5c44; background: #d8ccb0; color: #2b2318; padding: 14px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5d4b28; border-bottom: 2px solid #b7a884; padding-bottom: 8px; margin-bottom: 10px">{{ sec.title }}</div>
+                <div style="display: flex; flex-direction: column; gap: 10px">
+                  <sc-for list="{{ sec.items }}" as="r" hint-placeholder-count="5">
+                    <div>
+                      <div style="font-size: 15px; line-height: 1.35; text-wrap: pretty">· {{ r.text }}</div>
+                      <sc-if value="{{ r.hasTiles }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #7a5a1e; margin: 4px 0 0 12px; line-height: 1.35; text-wrap: pretty">{{ r.tileLine }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ hasDrawer }}" hint-placeholder-val="{{ false }}">
+        <div style="position: fixed; inset: 0; z-index: 60; background: rgba(8,6,4,.72); display: flex; align-items: flex-end; justify-content: center">
+          <div onClick="{{ closeDrawer }}" style="position: absolute; inset: 0"></div>
+          <div style="position: relative; width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #2b2419); box-shadow: 0 -8px 40px rgba(0,0,0,.7)">
+            <div style="position: sticky; top: 0; background: #332b21; border-bottom: 2px solid #6b5c44; padding: 12px; display: flex; gap: 10px; align-items: flex-start">
+              <div style="flex: 1">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">{{ drawer.kindLabel }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #ff981f; text-shadow: 1px 1px 0 #000; margin-top: 4px">{{ drawer.name }}</div>
+              </div>
+              <button type="button" onClick="{{ closeDrawer }}" style="cursor: pointer; width: 44px; height: 44px; font-size: 18px; border: 2px solid #6b5c44; background: #453c2e; color: #e8dcc0">×</button>
+            </div>
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px">
+              <div style="border: 2px solid #6b5c44; background: #d8ccb0; color: #2b2318; padding: 12px; font-size: 16px; line-height: 1.35; text-wrap: pretty">{{ drawer.objective }}</div>
+              <sc-if value="{{ drawer.hasTileRules }}" hint-placeholder-val="{{ false }}">
+                <div style="border: 2px solid #a8862c; background: #3a2f18; padding: 10px; display: grid; gap: 6px">
+                  <div style="display: flex; align-items: center; gap: 7px">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 1px solid #a8862c; background: #241e16; color: #ffb347; font-family: 'IBM Plex Mono', monospace; font-size: 12px">?</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #ffb347">RULES FOR THIS TILE</span>
+                  </div>
+                  <sc-for list="{{ drawer.tileRules }}" as="tr" hint-placeholder-count="2">
+                    <div style="font-size: 15px; color: #ffe08a; line-height: 1.35; text-wrap: pretty">· {{ tr.text }}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+                <span style="border: 2px solid {{ drawer.stateBorder }}; background: {{ drawer.stateBg }}; color: {{ drawer.stateColor }}; padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px">{{ drawer.stateLabel }}</span>
+                <span style="font-size: 14px; color: #a2957a">{{ drawer.staffLine }}</span>
+              </div>
+
+              <div style="border: 2px solid #6b5c44; background: #241e16; padding: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+                <div style="flex: 1 1 120px">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">PROGRESS</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: #ffff5c; margin-top: 5px">{{ drawer.progressLabel }}</div>
+                </div>
+                <sc-if value="{{ drawer.canProgress }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <span style="font-size: 13px; color: #c8b98f">{{ drawer.mineLine }}</span>
+                    <button type="button" onClick="{{ drawer.progressDown }}" style="cursor: pointer; width: 48px; min-height: 48px; font-size: 20px; border: 2px solid #6b5c44; background: #453c2e; color: #e8dcc0">−</button>
+                    <button type="button" onClick="{{ drawer.progressUp }}" style="cursor: pointer; width: 48px; min-height: 48px; font-size: 20px; border: 2px solid #a8862c; background: #4a3f22; color: #ffe9a8">+</button>
+                  </div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ drawer.isDone }}" hint-placeholder-val="{{ false }}">
+                <div style="border: 2px solid #4fa05f; background: #1c4a2a; padding: 10px; display: grid; gap: 5px">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7fd695">{{ drawer.doneStamp }}</div>
+                  <div style="font-size: 15px; color: #dff7d0">{{ drawer.finishedBy }}</div>
+                  <sc-if value="{{ drawer.showContribList }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; gap: 3px">
+                      <sc-for list="{{ drawer.contributors }}" as="c" hint-placeholder-count="2">
+                        <div style="font-size: 14px; color: #b6f5c4">{{ c.line }}</div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <div style="border: 2px solid #6b5c44; background: #241e16; padding: 10px; display: grid; gap: 7px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">FROM PLANNING</div>
+                <div style="font-size: 15px; color: #c8b98f">{{ drawer.intentTally }}</div>
+                <sc-if value="{{ drawer.hasWantNames }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #b6f5c4; line-height: 1.35">{{ drawer.wantNames }}</div>
+                </sc-if>
+                <sc-if value="{{ drawer.hasOkNames }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #ffe08a; line-height: 1.35">{{ drawer.okNames }}</div>
+                </sc-if>
+                <sc-if value="{{ drawer.hasNoNames }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #c78b73; line-height: 1.35">{{ drawer.noNames }}</div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ drawer.canDown }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ drawer.toggleDown }}" style="cursor: pointer; width: 100%; min-height: 52px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 15px; border: 2px solid {{ drawer.downBorder }}; background: {{ drawer.downBg }}; color: {{ drawer.downColor }}">{{ drawer.downLabel }}</button>
+              </sc-if>
+
+              <sc-if value="{{ drawer.showCrew }}" hint-placeholder-val="{{ true }}">
+              <div style="border: 2px solid #4f8a3c; background: #2b3524; padding: 10px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #b6f5c4; margin-bottom: 8px">{{ drawer.crewHeading }}</div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <sc-for list="{{ drawer.crew }}" as="w" hint-placeholder-count="2">
+                    <div style="display: flex; gap: 6px; align-items: stretch">
+                      <div style="flex: 1; min-height: 52px; font-size: 15px; padding: 9px 10px; border: 2px solid #4f8a3c; background: #24301d; color: #dff7d0">
+                        <span style="display: flex; align-items: center; gap: 7px">
+                          <span style="flex: 1">{{ w.name }}</span>
+                          <span style="font-size: 13px; color: #8fbf85">{{ w.countLine }}</span>
+                          <sc-if value="{{ w.hasScythe }}" hint-placeholder-val="{{ false }}"><img src="https://oldschool.runescape.wiki/images/Scythe_of_vitur.png" alt="Scythe of vitur" title="Scythe of vitur" style="width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated" /></sc-if>
+                          <sc-if value="{{ w.hasShadow }}" hint-placeholder-val="{{ false }}"><img src="https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png" alt="Tumeken's shadow" title="Tumeken's shadow" style="width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated" /></sc-if>
+                          <sc-if value="{{ w.hasTbow }}" hint-placeholder-val="{{ false }}"><img src="https://oldschool.runescape.wiki/images/Twisted_bow.png" alt="Twisted bow" title="Twisted bow" style="width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated" /></sc-if>
+                        </span>
+                        <span style="display: block; font-size: 13px; color: #8fbf85; margin-top: 2px">{{ w.taskLine }}</span>
+                      </div>
+                      <sc-if value="{{ w.canRemove }}" hint-placeholder-val="{{ false }}">
+                        <button type="button" onClick="{{ w.remove }}" style="cursor: pointer; width: 46px; min-height: 52px; font-size: 16px; border: 2px solid #8a4a3a; background: #3f2620; color: #f0b8a8">×</button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ drawer.noCrew }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-size: 14px; color: #8fbf85">Nobody on this yet.</div>
+                </sc-if>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ drawer.showLeader }}" hint-placeholder-val="{{ false }}">
+                <div style="border: 2px solid #a8862c; background: #3a2f18; padding: 10px; display: grid; gap: 9px">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #ffb347">LEADER CONTROLS</div>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 6px">
+                    <button type="button" onClick="{{ drawer.toggleFocus }}" style="cursor: pointer; min-height: 46px; font-size: 14px; padding: 11px; border: 2px solid #a8862c; background: {{ drawer.focusBg }}; color: #ffe08a">{{ drawer.focusLabel }}</button>
+                    <button type="button" onClick="{{ drawer.toggleDone }}" style="cursor: pointer; min-height: 46px; font-size: 14px; padding: 11px; border: 2px solid {{ drawer.doneBorder }}; background: {{ drawer.doneBg }}; color: {{ drawer.doneColor }}">{{ drawer.doneLabel }}</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <div style="border: 2px solid #6b5c44; background: #241e16; padding: 10px; display: grid; gap: 8px">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">OSRS INFO</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 4px 7px; border: 1px solid {{ drawer.confBorder }}; color: {{ drawer.confColor }}">{{ drawer.confLabel }}</span>
+                </div>
+                <div style="font-size: 15px">Source: <span style="color: #6bd8ff">{{ drawer.source }}</span></div>
+
+                <sc-if value="{{ drawer.hasRates }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 5px">
+                    <sc-for list="{{ drawer.rates }}" as="rw" hint-placeholder-count="2">
+                      <div style="border: 1px solid {{ rw.border }}; background: #2f281f; padding: 8px 9px">
+                        <div style="display: flex; justify-content: space-between; gap: 8px; align-items: baseline">
+                          <span style="font-size: 15px; color: #e8dcc0; line-height: 1.2">{{ rw.name }}</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: {{ rw.estColor }}; white-space: nowrap">{{ rw.est }}</span>
+                        </div>
+                        <div style="font-size: 13px; color: #a2957a; margin-top: 4px">{{ rw.detail }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ drawer.hasEstimate }}" hint-placeholder-val="{{ true }}">
+                  <div style="border: 2px solid #a8862c; background: #3a2f18; padding: 10px">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #ffb347">EST. TIME TO COMPLETE</div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 21px; color: #ffe08a; margin-top: 6px">{{ drawer.estimate }}</div>
+                    <div style="font-size: 14px; color: #c8b98f; margin-top: 5px; line-height: 1.35; text-wrap: pretty">{{ drawer.estimateLine }}</div>
+                    <sc-if value="{{ drawer.hasSplit }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size: 14px; color: #b6f5c4; margin-top: 5px">{{ drawer.splitLine }}</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ drawer.noRate }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #c8b98f; line-height: 1.35; text-wrap: pretty">{{ drawer.noRateLine }}</div>
+                </sc-if>
+
+                <sc-if value="{{ drawer.hasRateNote }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-size: 13px; color: #a2957a; line-height: 1.35; text-wrap: pretty">{{ drawer.rateNote }}</div>
+                </sc-if>
+
+                <sc-if value="{{ drawer.hasEstimate }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-size: 12px; color: #8a7f6d; line-height: 1.35; border-top: 1px solid #3d3427; padding-top: 7px; text-wrap: pretty">Kills per hour are a rough average for decent gear. Your gear, prayer, team size and experience move it a long way in both directions, so read every estimate as a ballpark, not a promise.</div>
+                </sc-if>
+
+                <sc-if value="{{ drawer.hasWiki }}" hint-placeholder-val="{{ true }}">
+                  <a href="{{ drawer.wiki }}" target="_blank" rel="noreferrer" style="font-size: 15px">Open OSRS Wiki ↗</a>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasPlanPick }}" hint-placeholder-val="{{ false }}">
+        <div style="position: fixed; inset: 0; z-index: 70; background: rgba(8,6,4,.72); display: flex; align-items: flex-end; justify-content: center">
+          <div onClick="{{ closePlanPick }}" style="position: absolute; inset: 0"></div>
+          <div style="position: relative; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #2b2419); box-shadow: 0 -8px 40px rgba(0,0,0,.7)">
+            <div style="position: sticky; top: 0; background: #332b21; border-bottom: 2px solid #6b5c44; padding: 12px; display: flex; gap: 10px; align-items: flex-start">
+              <div style="flex: 1">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">{{ planPick.regionLabel }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #ff981f; margin-top: 4px">{{ planPick.name }}</div>
+              </div>
+              <button type="button" onClick="{{ closePlanPick }}" style="cursor: pointer; width: 44px; height: 44px; font-size: 18px; border: 2px solid #6b5c44; background: #453c2e; color: #e8dcc0">×</button>
+            </div>
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px">
+              <div style="border: 2px solid #6b5c44; background: #d8ccb0; color: #2b2318; padding: 12px; font-size: 16px; line-height: 1.35; text-wrap: pretty">{{ planPick.objective }}</div>
+              <div style="font-size: 14px; color: #a2957a">Source: <span style="color: #6bd8ff">{{ planPick.source }}</span></div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px">
+                <button type="button" onClick="{{ planPick.want.set }}" style="cursor: pointer; min-height: 66px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 12px 6px; border: 2px solid {{ planPick.want.border }}; background: {{ planPick.want.bg }}; color: {{ planPick.want.color }}">{{ planPick.want.label }}</button>
+                <button type="button" onClick="{{ planPick.ok.set }}" style="cursor: pointer; min-height: 66px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 12px 6px; border: 2px solid {{ planPick.ok.border }}; background: {{ planPick.ok.bg }}; color: {{ planPick.ok.color }}">{{ planPick.ok.label }}</button>
+                <button type="button" onClick="{{ planPick.no.set }}" style="cursor: pointer; min-height: 66px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 12px 6px; border: 2px solid {{ planPick.no.border }}; background: {{ planPick.no.bg }}; color: {{ planPick.no.color }}">{{ planPick.no.label }}</button>
+              </div>
+              <div style="font-size: 15px; color: {{ planPick.mineColor }}">{{ planPick.mineLabel }}</div>
+              <div style="border: 2px solid #6b5c44; background: #241e16; padding: 10px; display: grid; gap: 5px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">THE TEAM</div>
+                <div style="font-size: 15px; color: #c8b98f">{{ planPick.tally }}</div>
+                <sc-if value="{{ planPick.hasWantNames }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #b6f5c4; line-height: 1.35">{{ planPick.wantNames }}</div>
+                </sc-if>
+                <sc-if value="{{ planPick.hasOkNames }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #ffe08a; line-height: 1.35">{{ planPick.okNames }}</div>
+                </sc-if>
+                <sc-if value="{{ planPick.hasNoNames }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #c78b73; line-height: 1.35">{{ planPick.noNames }}</div>
+                </sc-if>
+              </div>
+              <button type="button" onClick="{{ planPick.details }}" style="width: 100%; cursor: pointer; min-height: 50px; font-size: 15px; padding: 13px; border: 2px solid #6b5c44; background: #453c2e; color: #e8dcc0">Open full tile info (rates, estimate)</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasRegionDrawer }}" hint-placeholder-val="{{ false }}">
+        <div style="position: fixed; inset: 0; z-index: 60; background: rgba(8,6,4,.72); display: flex; align-items: flex-end; justify-content: center">
+          <div onClick="{{ closeRegion }}" style="position: absolute; inset: 0"></div>
+          <div style="position: relative; width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; border: 2px solid #6b5c44; background: linear-gradient(#3e3529, #2b2419); box-shadow: 0 -8px 40px rgba(0,0,0,.7)">
+            <div style="position: sticky; top: 0; background: #332b21; border-bottom: 2px solid #6b5c44; padding: 12px; display: flex; gap: 10px; align-items: flex-start">
+              <div style="flex: 1">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">REGION</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #ff981f; margin-top: 4px">{{ regionDrawer.name }}</div>
+              </div>
+              <button type="button" onClick="{{ closeRegion }}" style="cursor: pointer; width: 44px; height: 44px; font-size: 18px; border: 2px solid #6b5c44; background: #453c2e; color: #e8dcc0">×</button>
+            </div>
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px">
+              <sc-if value="{{ regionDrawer.complete }}" hint-placeholder-val="{{ false }}">
+                <div style="border: 2px solid #4fa05f; background: #1c4a2a; color: #b6f5c4; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 11px; text-align: center">{{ regionDrawer.completeLabel }}</div>
+              </sc-if>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+                <span style="border: 2px solid {{ regionDrawer.stateBorder }}; background: {{ regionDrawer.stateBg }}; color: {{ regionDrawer.stateColor }}; padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px">{{ regionDrawer.lockLabel }}</span>
+                <span style="font-size: 14px; color: #a2957a">{{ regionDrawer.unlockNote }}</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 7px">
+                <sc-for list="{{ regionDrawer.stats }}" as="st" hint-placeholder-count="6">
+                  <div style="border: 2px solid #6b5c44; background: #2f281f; padding: 9px">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">{{ st.label }}</div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: {{ st.color }}; margin-top: 5px">{{ st.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border: 2px solid #a8862c; background: #3a2f18; padding: 10px; display: grid; gap: 5px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #ffb347">EST. TIME LEFT IN THIS REGION</div>
+                <div style="font-size: 15px; color: #ffe08a; line-height: 1.35; text-wrap: pretty">{{ regionDrawer.estimateLine }}</div>
+                <sc-if value="{{ regionDrawer.hasBridgeLine }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; color: #ffb347; line-height: 1.35">{{ regionDrawer.bridgeLine }}</div>
+                </sc-if>
+                <div style="font-size: 12px; color: #a2957a; line-height: 1.35; text-wrap: pretty">Sum of every open tile's own estimate, one player per tile. Split tiles across people and it drops fast.</div>
+              </div>
+              <div style="border: 2px solid #6b5c44; background: #241e16; padding: 10px; display: grid; gap: 6px">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">WHAT'S MOVING</div>
+                <div style="font-size: 15px; line-height: 1.35">{{ regionDrawer.activeLine }}</div>
+                <div style="font-size: 14px; color: #c8b98f; line-height: 1.35">{{ regionDrawer.peopleLine }}</div>
+              </div>
+              <sc-if value="{{ regionDrawer.hasBridge }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ regionDrawer.bridge.open }}" style="width: 100%; cursor: pointer; text-align: left; border: 2px solid {{ regionDrawer.bridge.border }}; background: {{ regionDrawer.bridge.bg }}; color: {{ regionDrawer.bridge.color }}; padding: 11px; min-height: 52px; font-size: 15px">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a2957a">WAY IN</span><br />{{ regionDrawer.bridge.label }}
+                </button>
+              </sc-if>
+              <button type="button" onClick="{{ regionDrawer.view }}" style="width: 100%; cursor: pointer; min-height: 50px; font-size: 15px; padding: 13px; border: 2px solid #6b5c44; background: #453c2e; color: #e8dcc0">Show this region's tiles</button>
+              <sc-if value="{{ isLeader }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ regionDrawer.toggleFocus }}" style="width: 100%; cursor: pointer; min-height: 50px; font-size: 15px; padding: 13px; border: 2px solid #a8862c; background: {{ regionDrawer.focusBg }}; color: #ffe08a">{{ regionDrawer.focusLabel }}</button>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:880}}">
+const KEY = "de_bingo_v1";
+const LEADER_TOKEN = "kx7f2p9qz4m1vw8s3h6t";
+const LEADER_NAME = "qqiyana/Wetfrog1998";
+const FREE_SPACE = "free_space";
+const RARES = [
+  { id: "scythe", name: "Scythe of vitur", img: "https://oldschool.runescape.wiki/images/Scythe_of_vitur.png" },
+  { id: "shadow", name: "Tumeken's shadow", img: "https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png" },
+  { id: "tbow", name: "Twisted bow", img: "https://oldschool.runescape.wiki/images/Twisted_bow.png" }
+];
+
+class Component extends DCLogic {
+  state = {
+    ready: false,
+    regions: [], bridges: [], roster: [], ruleSections: [], tileRules: {},
+    me: null, leader: false, tab: "board", region: "central",
+    open: null, openRegion: null, planPick: null,
+    workers: {}, done: [], intents: {},
+    focusR: [], focusT: [], edits: {}, contribs: {}, doneAt: {},
+    profiles: {},
+    formRares: [], formTask: "", formOpen: false
+  };
+
+  componentDidMount() {
+    import("./board-data.js").then((m) => {
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
+      const leaderFromUrl = (location.search + location.hash).indexOf(LEADER_TOKEN) >= 0;
+      const done = saved.done || [];
+      const me = saved.me || (leaderFromUrl ? LEADER_NAME : null);
+      const doneIds = done.indexOf(FREE_SPACE) >= 0 ? done : done.concat([FREE_SPACE]);
+      const mergeCrew = (sv) => {
+        const out = Object.assign({}, sv.workers || {});
+        [sv.willing || {}, sv.assigned || {}].forEach((map) => Object.keys(map).forEach((k) => {
+          out[k] = (out[k] || []).concat(map[k] || []).filter((p, i, arr) => arr.indexOf(p) === i);
+        }));
+        return out;
+      };
+      const strip = (map) => {
+        const out = {};
+        Object.keys(map || {}).forEach((k) => { if (doneIds.indexOf(k) < 0) out[k] = map[k]; });
+        return out;
+      };
+      const profiles = saved.profiles || {};
+      const mine = me ? profiles[me] : null;
+      this.setState({
+        ready: true,
+        regions: m.REGIONS, bridges: m.BRIDGES, roster: m.ROSTER, ruleSections: m.RULE_SECTIONS, tileRules: m.TILE_RULES,
+        me: me,
+        leader: leaderFromUrl,
+        tab: saved.tab || "board",
+        region: saved.region || "central",
+        workers: strip(mergeCrew(saved)),
+        done: done.indexOf(FREE_SPACE) >= 0 ? done : done.concat([FREE_SPACE]),
+        focusR: (saved.focusR || []).filter((rid) => {
+          const r = m.REGIONS.filter((x) => x.id === rid)[0];
+          return !r || !r.tiles.every((x) => doneIds.indexOf(x.id) >= 0);
+        }),
+        focusT: (saved.focusT || []).filter((x) => x !== FREE_SPACE && doneIds.indexOf(x) < 0),
+        edits: saved.edits || {},
+        contribs: saved.contribs || {},
+        intents: saved.intents || {},
+        doneAt: saved.doneAt || {},
+        profiles: profiles,
+        formRares: mine ? mine.rares || [] : [],
+        formTask: mine ? mine.task || "" : ""
+      });
+    });
+  }
+
+  save(patch) {
+    this.setState(patch, () => {
+      const s = this.state;
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          me: s.me, tab: s.tab, region: s.region, workers: s.workers,
+          done: s.done, focusR: s.focusR,
+          focusT: s.focusT, edits: s.edits, profiles: s.profiles, contribs: s.contribs, doneAt: s.doneAt,
+          intents: s.intents
+        }));
+      } catch (e) {}
+    });
+  }
+
+  toggleIn(list, v) { return list.indexOf(v) >= 0 ? list.filter((x) => x !== v) : list.concat([v]); }
+
+  actor() { return this.state.leader ? LEADER_NAME : this.state.me; }
+
+  pool() { return this.state.roster.concat([LEADER_NAME]); }
+
+  raresOf(player) {
+    const p = this.state.profiles[player];
+    const ids = p ? p.rares || [] : [];
+    return RARES.filter((r) => ids.indexOf(r.id) >= 0).map((r) => ({ img: r.img, name: r.name, ok: true }));
+  }
+
+  rareFlags(player) {
+    const p = this.state.profiles[player];
+    const ids = p ? p.rares || [] : [];
+    return {
+      hasScythe: ids.indexOf("scythe") >= 0,
+      hasShadow: ids.indexOf("shadow") >= 0,
+      hasTbow: ids.indexOf("tbow") >= 0,
+      rareCount: ids.length
+    };
+  }
+
+  taskOf(player) {
+    const p = this.state.profiles[player];
+    return p && p.task ? p.task : "No task set";
+  }
+
+  ed(id, field, fallback) {
+    const e = this.state.edits[id] || {};
+    return e[field] !== undefined && e[field] !== null && e[field] !== "" ? e[field] : fallback;
+  }
+
+  bridgeFor(regionId) {
+    return this.state.bridges.filter((b) => this.ed(b.id, "dest", b.dest) === regionId)[0] || null;
+  }
+
+  regionUnlocked(regionId) {
+    if (regionId === "central") return true;
+    const b = this.bridgeFor(regionId);
+    return !!b && this.state.done.indexOf(b.id) >= 0;
+  }
+
+  targetState(t) {
+    const s = this.state;
+    if (t.id === FREE_SPACE || s.done.indexOf(t.id) >= 0) return "done";
+    if (t.kind === "bridge") {
+      const prereq = this.ed(t.id, "prereq", t.prereq);
+      if (t.mystery && !prereq) return "locked";
+      if (prereq && s.done.indexOf(prereq) < 0) return "locked";
+      return this.crewState(t.id);
+    }
+    if (!this.regionUnlocked(t.regionId)) return "locked";
+    return this.crewState(t.id);
+  }
+
+  crewState(id) {
+    return (this.state.workers[id] || []).length ? "working" : "available";
+  }
+
+  tileRuleList(id) {
+    const s = this.state;
+    if (!id || id === FREE_SPACE) return [];
+    const base = ((s.tileRules || {})[id] || []).slice();
+    for (let i = 0; i < s.regions.length; i++) {
+      const tiles = s.regions[i].tiles || [];
+      for (let j = 0; j < tiles.length; j++) {
+        if (tiles[j].id !== id) continue;
+        if (j === 4) base.push(tiles[j].ch ? "Middle challenge tile — worth 3 points, and it cannot be completed with a pet." : "Middle tile — worth 3 points on its own.");
+        if (tiles[j].ch) base.push("Challenge tile: screenshot your gear / inventory beforehand.");
+        return base;
+      }
+    }
+    return base;
+  }
+
+  skin(st) {
+    return {
+      locked: { bg: "#2a251e", border: "#463d31", color: "#8a7f6d", badge: "LOCKED" },
+      available: { bg: "#453c2e", border: "#6b5c44", color: "#e8dcc0", badge: "OPEN" },
+      working: { bg: "#17313d", border: "#3f7e99", color: "#9fdcf0", badge: "ON IT" },
+      done: { bg: "#1c4a2a", border: "#4fa05f", color: "#b6f5c4", badge: "DONE" }
+    }[st];
+  }
+
+  allTiles() {
+    const out = [];
+    this.state.regions.forEach((r) => r.tiles.forEach((t, i) => {
+      out.push(Object.assign({}, t, { kind: "tile", regionId: r.id, regionName: r.name, row: Math.floor(i / 3), col: i % 3 }));
+    }));
+    return out;
+  }
+
+  findTarget(id) {
+    const t = this.allTiles().filter((x) => x.id === id)[0];
+    if (t) return t;
+    const b = this.state.bridges.filter((x) => x.id === id)[0];
+    return b ? Object.assign({}, b, { kind: "bridge" }) : null;
+  }
+
+  nameOf(id) {
+    const t = this.findTarget(id);
+    return t ? this.ed(id, "name", t.n || t.name) : id;
+  }
+
+  scoreOf() {
+    const done = this.state.done;
+    let rows = 0, cols = 0, mids = 0, blackouts = 0;
+    this.state.regions.forEach((r) => {
+      const d = r.tiles.map((t) => done.indexOf(t.id) >= 0);
+      for (let i = 0; i < 3; i++) if (d[i * 3] && d[i * 3 + 1] && d[i * 3 + 2]) rows += 5;
+      for (let c = 0; c < 3; c++) if (d[c] && d[c + 3] && d[c + 6]) cols += 5;
+      if (d[4] && !(r.tiles[4] && r.tiles[4].id === FREE_SPACE)) mids += 3;
+      if (d.every(Boolean)) blackouts += 7;
+    });
+    return { rows: rows, cols: cols, mids: mids, blackouts: blackouts, total: rows + cols + mids + blackouts };
+  }
+
+  regionEstimate(r) {
+    const done = this.state.done;
+    let hours = 0, rated = 0, unknown = 0, challenges = 0, left = 0, bridgeHours = 0;
+    const tally = (t) => {
+      const info = this.infoFor(t);
+      if (info.best) { hours += info.best; rated++; return info.best; }
+      if (info.kind === "challenge") challenges++; else unknown++;
+      return 0;
+    };
+    const b = this.bridgeFor(r.id);
+    if (b && done.indexOf(b.id) < 0) { left++; bridgeHours = tally(Object.assign({}, b, { kind: "bridge" })); }
+    r.tiles.forEach((t) => {
+      if (done.indexOf(t.id) >= 0) return;
+      left++;
+      tally(t);
+    });
+    if (bridgeHours) { /* bridge already counted in hours */ }
+    return { hours: hours, rated: rated, unknown: unknown, challenges: challenges, left: left, bridgeHours: bridgeHours };
+  }
+
+  regionStats(r) {
+    const done = this.state.done;
+    const d = r.tiles.map((t) => done.indexOf(t.id) >= 0);
+    let rows = 0, cols = 0;
+    for (let i = 0; i < 3; i++) if (d[i * 3] && d[i * 3 + 1] && d[i * 3 + 2]) rows++;
+    for (let c = 0; c < 3; c++) if (d[c] && d[c + 3] && d[c + 6]) cols++;
+    const midFree = !!(r.tiles[4] && r.tiles[4].id === FREE_SPACE);
+    const points = rows * 5 + cols * 5 + (d[4] && !midFree ? 3 : 0) + (d.every(Boolean) ? 7 : 0);
+    return { count: d.filter(Boolean).length, rows: rows, cols: cols, mid: d[4] && !midFree, blackout: d.every(Boolean), points: points };
+  }
+
+  toggleWorker(id) {
+    const who = this.actor();
+    if (!who || id === FREE_SPACE || this.state.done.indexOf(id) >= 0) return;
+    const workers = Object.assign({}, this.state.workers);
+    const list = workers[id] || [];
+    workers[id] = list.indexOf(who) >= 0 ? list.filter((x) => x !== who) : list.concat([who]);
+    this.save({ workers: workers });
+  }
+
+  dropWorker(id, player) {
+    const workers = Object.assign({}, this.state.workers);
+    workers[id] = (workers[id] || []).filter((x) => x !== player);
+    this.save({ workers: workers });
+  }
+
+  goalOf(t) {
+    const edited = parseInt(this.ed(t.id, "goal", null), 10);
+    if (edited > 0) return edited;
+    const m = /(\d+)\s*x/i.exec(t.o || "");
+    return m ? parseInt(m[1], 10) : 1;
+  }
+
+  progressOf(id) {
+    const c = this.state.contribs[id] || {};
+    return Object.keys(c).reduce((a, k) => a + (c[k] || 0), 0);
+  }
+
+  contributorsOf(id) {
+    const c = this.state.contribs[id] || {};
+    return Object.keys(c).filter((k) => c[k] > 0).sort((a, b) => c[b] - c[a]).map((k) => ({ name: k, count: c[k] }));
+  }
+
+  addProgress(t, delta) {
+    const who = this.actor();
+    if (!who || t.id === FREE_SPACE) return;
+    const contribs = Object.assign({}, this.state.contribs);
+    const mine = Object.assign({}, contribs[t.id] || {});
+    mine[who] = Math.max(0, (mine[who] || 0) + delta);
+    if (!mine[who]) delete mine[who];
+    contribs[t.id] = mine;
+    const total = Object.keys(mine).reduce((a, k) => a + mine[k], 0);
+    const goal = this.goalOf(t);
+    if (total >= goal && this.state.done.indexOf(t.id) < 0) {
+      this.finish(t.id, { contribs: contribs });
+    } else if (total < goal && this.state.done.indexOf(t.id) >= 0) {
+      const doneAt = Object.assign({}, this.state.doneAt);
+      delete doneAt[t.id];
+      this.save({ contribs: contribs, done: this.state.done.filter((x) => x !== t.id), doneAt: doneAt });
+    } else {
+      this.save({ contribs: contribs });
+    }
+  }
+
+  finish(id, extra) {
+    const workers = Object.assign({}, this.state.workers);
+    delete workers[id];
+    const doneAt = Object.assign({}, this.state.doneAt);
+    doneAt[id] = new Date().toISOString();
+    const done = this.state.done.indexOf(id) >= 0 ? this.state.done : this.state.done.concat([id]);
+    const focusR = this.state.focusR.filter((rid) => {
+      const r = this.state.regions.filter((x) => x.id === rid)[0];
+      return !r || !r.tiles.every((t) => done.indexOf(t.id) >= 0);
+    });
+    this.save(Object.assign({
+      done: done, doneAt: doneAt, workers: workers,
+      focusT: this.state.focusT.filter((x) => x !== id),
+      focusR: focusR
+    }, extra || {}));
+  }
+
+  toggleDone(id) {
+    if (id === FREE_SPACE) return;
+    const done = this.state.done;
+    if (done.indexOf(id) >= 0) {
+      const t = this.findTarget(id);
+      if (t && t.kind === "bridge") {
+        const dest = this.ed(id, "dest", t.dest);
+        const region = this.state.regions.filter((r) => r.id === dest)[0];
+        const anyDone = region && region.tiles.some((x) => done.indexOf(x.id) >= 0);
+        if (anyDone && !confirm("Tiles in " + region.name + " are already done. Undo this bridge anyway?")) return;
+      }
+      const doneAt = Object.assign({}, this.state.doneAt);
+      delete doneAt[id];
+      this.save({ done: done.filter((x) => x !== id), doneAt: doneAt });
+    } else {
+      this.finish(id);
+    }
+  }
+
+
+  seedFor(person) {
+    const p = this.state.profiles[person] || {};
+    return { formRares: p.rares || [], formTask: p.task || "" };
+  }
+
+  storeProfile() {
+    const who = this.actor();
+    if (!who) return;
+    const profiles = Object.assign({}, this.state.profiles);
+    profiles[who] = { rares: this.state.formRares, task: this.state.formTask };
+    this.save({ profiles: profiles, tab: "board" });
+  }
+
+  setIntent(id, v) {
+    const who = this.actor();
+    if (!who || id === FREE_SPACE) return;
+    const intents = Object.assign({}, this.state.intents);
+    const row = Object.assign({}, intents[id] || {});
+    if (row[who] === v) delete row[who]; else row[who] = v;
+    intents[id] = row;
+    this.save({ intents: intents });
+  }
+
+  intentCounts(id) {
+    const row = this.state.intents[id] || {};
+    const c = { want: 0, ok: 0, no: 0, total: 0 };
+    Object.keys(row).forEach((k) => { if (c[row[k]] !== undefined) { c[row[k]]++; c.total++; } });
+    return c;
+  }
+
+  intentNames(id, v) {
+    const row = this.state.intents[id] || {};
+    return Object.keys(row).filter((k) => row[k] === v);
+  }
+
+  intentBar(id) {
+    const c = this.intentCounts(id);
+    const pct = (n) => (c.total ? (n / c.total) * 100 + "%" : "0%");
+    return { has: c.total > 0, counts: c, wantW: pct(c.want), okW: pct(c.ok), noW: pct(c.no) };
+  }
+
+  fmtNum(n) { return Math.round(n).toLocaleString("en-US"); }
+
+  fmtHrs(h) {
+    if (!isFinite(h) || h <= 0) return "—";
+    if (h < 1) return Math.round(h * 60) + " min";
+    if (h < 10) return (Math.round(h * 10) / 10) + " h";
+    if (h < 100) return Math.round(h) + " h";
+    return Math.round(h / 5) * 5 + " h";
+  }
+
+  infoFor(t) {
+    const i = t && t.i;
+    const CONF = {
+      w: { label: "WIKI RATE", color: "#7fd695", border: "#4f8a3c" },
+      e: { label: "COMMUNITY EST.", color: "#ffe08a", border: "#a8862c" },
+      u: { label: "UNCONFIRMED", color: "#f0b8a8", border: "#8a4a3a" }
+    };
+    const out = {
+      rows: [], best: null, bestName: "", fixed: false, kind: "none",
+      need: (i && i.need) || 1, note: (i && i.note) || "",
+      conf: i ? CONF[i.c || "u"] : null
+    };
+    if (!i) { out.kind = t && t.ch ? "challenge" : "none"; return out; }
+    if (i.d && i.d.length) {
+      out.kind = "drops";
+      i.d.forEach((d) => {
+        const u = d.u || "kills";
+        const actions = d.r * out.need;
+        out.rows.push({
+          name: d.n,
+          hours: d.k ? actions / d.k : null,
+          detail: "1/" + this.fmtNum(d.r) + " · ~" + d.k + " " + u + "/hr · " + this.fmtNum(actions) + " " + u + " for " + out.need + "×"
+        });
+      });
+    }
+    if (i.hr) {
+      out.kind = "rate";
+      out.rows.push({
+        name: i.hr.u.charAt(0).toUpperCase() + i.hr.u.slice(1),
+        hours: i.hr.got / i.hr.per,
+        detail: this.fmtNum(i.hr.got) + " " + i.hr.u + " at ~" + this.fmtNum(i.hr.per) + " " + i.hr.u + " per hour"
+      });
+    }
+    const timed = out.rows.filter((r) => r.hours);
+    if (timed.length) {
+      const fastest = timed.slice().sort((a, b) => a.hours - b.hours)[0];
+      out.best = fastest.hours;
+      out.bestName = fastest.name;
+    }
+    if (i.fix) {
+      out.best = i.fix;
+      out.fixed = true;
+      if (out.kind === "none") out.kind = "fixed";
+    }
+    return out;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isLeader = !!s.leader;
+    const who = this.actor();
+    const open = (id) => () => this.save({ open: id, openRegion: null });
+
+    const tileView = (t) => {
+      const st = this.targetState(t);
+      const sk = this.skin(st);
+      const focused = s.focusT.indexOf(t.id) >= 0;
+      const frozen = t.id === FREE_SPACE;
+      const goal = this.goalOf(t);
+      const prog = this.progressOf(t.id);
+      const bar = this.intentBar(t.id);
+      return {
+        id: t.id,
+        objective: this.ed(t.id, "o", t.o),
+        hasIntent: false,
+        wantW: bar.wantW,
+        okW: bar.okW,
+        noW: bar.noW,
+        name: this.ed(t.id, "name", t.n || t.name),
+        badge: sk.badge,
+        badgeColor: sk.color,
+        bg: sk.bg,
+        border: focused ? "#ff981f" : sk.border,
+        outline: focused ? "2px solid #ff981f" : "none",
+        color: sk.color,
+        hasRules: this.tileRuleList(t.id).length > 0,
+        count: st === "done" || st === "locked" ? "" : prog + "/" + goal,
+        countColor: prog > 0 ? "#ffff5c" : "#a2957a",
+        clickable: !frozen,
+        frozen: frozen,
+        open: frozen ? () => {} : open(t.id)
+      };
+    };
+
+    const bridgeView = (b) => {
+      if (!b) return null;
+      const st = this.targetState(Object.assign({}, b, { kind: "bridge" }));
+      const named = this.ed(b.id, "name", b.name);
+      const nm = b.mystery && (!named || named === "???") ? "Mystery bridge" : named;
+      const info = this.infoFor(Object.assign({}, b, { kind: "bridge" }));
+      const tone = st === "done"
+        ? { border: "#4fa05f", bg: "#1c4a2a", color: "#b6f5c4", head: "#7fd695" }
+        : st === "locked"
+          ? { border: "#463d31", bg: "#2a251e", color: "#8a7f6d", head: "#8a7f6d" }
+          : { border: "#ff981f", bg: "#4a3f22", color: "#ffe9a8", head: "#ffb347" };
+      const crew = (this.state.workers[b.id] || []).length;
+      return {
+        border: tone.border, bg: tone.bg, color: tone.color, headColor: tone.head,
+        heading: st === "done" ? "BRIDGE CLEARED · REGION UNLOCKED" : st === "locked" ? "BRIDGE LOCKED · CLEAR ITS PREREQ FIRST" : "BRIDGE · CLEAR THIS TO UNLOCK THE REGION",
+        label: nm,
+        sub: this.ed(b.id, "o", b.o) + (st !== "done" && info.best ? "  ·  ≈ " + this.fmtHrs(info.best) : "") + (crew ? "  ·  " + crew + " on it" : ""),
+        open: open(b.id)
+      };
+    };
+
+    const emptyBridge = { border: "#463d31", bg: "#2a251e", color: "#8a7f6d", headColor: "#8a7f6d", heading: "", label: "", sub: "", open: () => {} };
+
+    const regionsView = s.regions.map((r) => {
+      const unlocked = this.regionUnlocked(r.id);
+      const st = this.regionStats(r);
+      const est = this.regionEstimate(r);
+      const focused = s.focusR.indexOf(r.id) >= 0;
+      const br = this.bridgeFor(r.id);
+      const sel = s.region === r.id;
+      return {
+        id: r.id,
+        name: r.name,
+        summaryLine: st.count + "/9 tiles · rows " + st.rows + "/3 · cols " + st.cols + "/3" + (est.rated ? " · ≈ " + this.fmtHrs(est.hours) + " left" : ""),
+        complete: st.blackout,
+        completeLabel: "REGION COMPLETE · +" + st.points + " PTS",
+        nameColor: st.blackout ? "#7fd695" : "#ff981f",
+        lockLabel: st.blackout ? "Complete" : unlocked ? "Unlocked" : "Locked",
+        lockColor: st.blackout ? "#7fd695" : unlocked ? "#b6f5c4" : "#c78b73",
+        panelBorder: st.blackout ? "#4fa05f" : focused ? "#ff981f" : unlocked ? "#6b5c44" : "#463d31",
+        panelOpacity: unlocked ? 1 : 0.72,
+        chipLabel: r.name.toUpperCase() + (unlocked ? "" : " · LOCKED"),
+        chipBorder: sel ? "#ff981f" : "#6b5c44",
+        chipBg: sel ? "#4a3f22" : "#332b21",
+        chipColor: sel ? "#ffe9a8" : "#a2957a",
+        select: () => this.save({ region: r.id }),
+        openRegion: () => this.save({ openRegion: r.id, open: null }),
+        hasBridge: !!br,
+        bridge: bridgeView(br) || emptyBridge,
+        tiles: r.tiles.map((t) => tileView(Object.assign({}, t, { kind: "tile", regionId: r.id }))),
+        focusLabel: focused ? r.name + " · focused" : r.name,
+        focusBorder: focused ? "#ff981f" : "#6b5c44",
+        focusBg: focused ? "#4a3f22" : "#332b21",
+        focusColor: focused ? "#ffe08a" : "#a2957a",
+        toggleFocus: () => this.save({ focusR: this.toggleIn(s.focusR, r.id) })
+      };
+    });
+
+    const current = regionsView.filter((r) => r.id === s.region)[0] || regionsView[0] || null;
+
+    const liveFocusR = s.focusR.filter((id) => {
+      const r = s.regions.filter((x) => x.id === id)[0];
+      return !r || !r.tiles.every((t) => s.done.indexOf(t.id) >= 0);
+    });
+    const liveFocusT = s.focusT.filter((id) => s.done.indexOf(id) < 0);
+    const focusList = liveFocusR.map((id) => {
+      const r = s.regions.filter((x) => x.id === id)[0];
+      return { label: (r ? r.name : id) + " region" };
+    }).concat(liveFocusT.map((id) => ({ label: this.nameOf(id) })));
+
+    const myOn = Object.keys(s.workers).filter((id) => (s.workers[id] || []).indexOf(who) >= 0).map((id) => {
+      const t = this.findTarget(id);
+      return { name: this.nameOf(id), sub: t && t.kind === "bridge" ? "Bridge" : t ? t.regionName : "", open: open(id) };
+    });
+
+    const teamView = this.pool().map((p) => {
+      const onIds = Object.keys(s.workers).filter((id) => id !== FREE_SPACE && (s.workers[id] || []).indexOf(p) >= 0);
+      const on = onIds.map((id) => this.nameOf(id));
+      const fl = this.rareFlags(p);
+      return Object.assign({}, fl, {
+        name: p === LEADER_NAME ? p + " (leader)" : p,
+        taskLine: "Task: " + this.taskOf(p),
+        countLine: on.length + (on.length === 1 ? " tile" : " tiles"),
+        tiles: onIds.map((id) => ({ name: this.nameOf(id), open: open(id) })),
+        idle: onIds.length === 0,
+        border: on.length ? "#4f8a3c" : "#6b5c44"
+      });
+    });
+
+    let drawer = null;
+    const t = s.open ? this.findTarget(s.open) : null;
+    if (t && t.id !== FREE_SPACE) {
+      const id = t.id;
+      const st = this.targetState(t);
+      const sk = this.skin(st);
+      const crewList = s.workers[id] || [];
+      const iAmOn = who && crewList.indexOf(who) >= 0;
+      const focused = s.focusT.indexOf(id) >= 0;
+      const isDone = st === "done";
+      const goal = this.goalOf(t);
+      const prog = this.progressOf(id);
+      const contributors = this.contributorsOf(id);
+      const mineCount = (s.contribs[id] || {})[who] || 0;
+      const canProgress = !!who && st !== "locked" && (isLeader || iAmOn || mineCount > 0);
+      const doneStamp = s.doneAt[id] ? new Date(s.doneAt[id]).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+      const labels = { locked: "LOCKED", available: "OPEN", working: "ON IT", done: "DONE" };
+      const myIntent = (s.intents[id] || {})[who] || "";
+      const iTone = (v) => {
+        const on = myIntent === v;
+        const tone = { want: ["#4f8a3c", "#2f4229", "#dff7d0"], ok: ["#a8862c", "#4a3f22", "#ffe9a8"], no: ["#8a4a3a", "#3f2620", "#f0b8a8"] }[v];
+        return { border: on ? tone[0] : "#6b5c44", bg: on ? tone[1] : "#332b21", color: on ? tone[2] : "#a2957a", set: () => this.setIntent(id, v) };
+      };
+      const iCount = this.intentCounts(id);
+      const nameLine = (v, word) => {
+        const names = this.intentNames(id, v);
+        return names.length ? word + ": " + names.join(", ") : "";
+      };
+      const info = this.infoFor(t);
+      const infoRows = info.rows.map((r) => ({
+        name: r.name,
+        detail: r.detail,
+        est: r.hours ? "≈ " + this.fmtHrs(r.hours) : "—",
+        estColor: r.hours && r.hours === info.best ? "#ffff5c" : "#c8b98f",
+        border: r.hours && r.hours === info.best ? "#a8862c" : "#4b4030"
+      }));
+      let estLine = "";
+      if (info.fixed && !info.rows.length) estLine = "Deterministic grind — no drop rate involved.";
+      else if (info.fixed) estLine = "Set grind — the rows above are single-item rates and don't simply add up. See the note below.";
+      else if (info.kind === "rate") estLine = info.rows.length ? info.rows[0].detail : "";
+      else if (info.kind === "drops") estLine = (info.need > 1 ? info.need + "× needed · " : "") + (infoRows.length > 1 ? "fastest route: " + info.bestName : info.bestName);
+      drawer = {
+        kindLabel: t.kind === "bridge" ? "BRIDGE INTO " + ((this.ed(id, "dest", t.dest) || "???").toUpperCase().replace("_", "-")) : (t.regionName || "").toUpperCase() + " REGION",
+        name: this.ed(id, "name", t.n || t.name),
+        objective: this.ed(id, "o", t.o),
+        hasTileRules: this.tileRuleList(id).length > 0,
+        tileRules: this.tileRuleList(id).map((x) => ({ text: x })),
+        stateLabel: labels[st] + (crewList.length && !isDone ? " · " + crewList.length : ""),
+        stateBg: sk.bg, stateBorder: sk.border, stateColor: sk.color,
+        staffLine: isDone ? "Locked in" : crewList.length ? crewList.length + (crewList.length === 1 ? " person on this" : " people on this") : "Nobody on this yet",
+        progressLabel: prog + " / " + goal,
+        goal: goal,
+        canProgress: canProgress && !isDone,
+        mineLine: "Your count: " + mineCount,
+        progressUp: () => this.addProgress(t, 1),
+        progressDown: () => this.addProgress(t, -1),
+        isDone: isDone,
+        doneStamp: doneStamp ? "Finished " + doneStamp : "Finished (no date recorded)",
+        finishedBy: contributors.length === 1 ? "Finished by " + contributors[0].name : contributors.length ? "Everyone who chipped in:" : "No contributions were logged.",
+        showContribList: contributors.length > 1,
+        contributors: contributors.map((c) => ({ line: c.name + " — " + c.count })),
+        canDown: !!who && !isDone && st !== "locked",
+        crewHeading: "WORKING ON THIS",
+        crew: crewList.map((p) => Object.assign({}, this.rareFlags(p), {
+          name: p === LEADER_NAME ? p + " (leader)" : p,
+          taskLine: this.taskOf(p),
+          countLine: ((s.contribs[id] || {})[p] || 0) + " logged",
+          canRemove: isLeader,
+          remove: () => this.dropWorker(id, p)
+        })),
+        noCrew: crewList.length === 0,
+        showLeader: isLeader,
+        showCrew: !isDone,
+        downLabel: iAmOn ? "I'M OFF THIS" : "I'M ON THIS",
+        downBg: iAmOn ? "#3f2620" : "#2f4229",
+        downBorder: iAmOn ? "#8a4a3a" : "#4f8a3c",
+        downColor: iAmOn ? "#f0b8a8" : "#dff7d0",
+        toggleDown: () => this.toggleWorker(id),
+        intentWant: iTone("want"),
+        intentOk: iTone("ok"),
+        intentNo: iTone("no"),
+        intentTally: iCount.total ? iCount.want + " want · " + iCount.ok + " willing · " + iCount.no + " won't" : "Nobody has answered for this tile yet",
+        wantNames: nameLine("want", "Want it"),
+        hasWantNames: !!nameLine("want", "Want it"),
+        okNames: nameLine("ok", "Willing"),
+        hasOkNames: !!nameLine("ok", "Willing"),
+        noNames: nameLine("no", "Won't"),
+        hasNoNames: !!nameLine("no", "Won't"),
+        source: t.s || "—",
+        confLabel: info.conf ? info.conf.label : "CHALLENGE",
+        confColor: info.conf ? info.conf.color : "#a2957a",
+        confBorder: info.conf ? info.conf.border : "#6b5c44",
+        hasRates: infoRows.length > 0,
+        rates: infoRows,
+        hasEstimate: !!info.best,
+        estimate: "≈ " + this.fmtHrs(info.best),
+        estimateLine: estLine,
+        hasSplit: crewList.length > 1 && !!info.best,
+        splitLine: crewList.length + " on this tile → ≈ " + this.fmtHrs(info.best / crewList.length) + " each if you split the grind.",
+        noRate: !info.best && infoRows.length === 0,
+        noRateLine: info.kind === "challenge" ? "Challenge tile — nothing to roll for, so no rate and no time estimate." : "No drop rate on record for this tile yet.",
+        hasRateNote: !!info.note,
+        rateNote: info.note,
+        wiki: t.w || "",
+        hasWiki: !!t.w,
+        focusLabel: focused ? "Drop focus" : "Focus this tile",
+        focusBg: focused ? "#4a3f22" : "#332b21",
+        toggleFocus: () => { if (id !== FREE_SPACE) this.save({ focusT: this.toggleIn(s.focusT, id) }); },
+        doneLabel: isDone ? "Undo done" : "Mark done",
+        doneBg: isDone ? "#332b21" : "#2f4229",
+        doneBorder: isDone ? "#6b5c44" : "#4f8a3c",
+        doneColor: isDone ? "#e8dcc0" : "#dff7d0",
+        toggleDone: () => this.toggleDone(id),
+      };
+    }
+
+    let regionDrawer = null;
+    const rg = s.openRegion ? s.regions.filter((r) => r.id === s.openRegion)[0] : null;
+    if (rg) {
+      const stat = this.regionStats(rg);
+      const rest = this.regionEstimate(rg);
+      const restLine = rest.rated
+        ? "≈ " + this.fmtHrs(rest.hours) + " of grinding across " + rest.rated + (rest.rated === 1 ? " rated tile" : " rated tiles") + " still open"
+          + (rest.challenges ? " · " + rest.challenges + (rest.challenges === 1 ? " challenge tile" : " challenge tiles") + " not counted" : "")
+          + (rest.unknown ? " · " + rest.unknown + " with no rate on record" : "")
+        : rest.left ? "Nothing left here has a rate — " + rest.left + " open " + (rest.left === 1 ? "tile is" : "tiles are") + " challenge or unrated."
+        : "Region complete — all nine tiles cleared.";
+      const restBridgeLine = rest.bridgeHours ? "Includes ≈ " + this.fmtHrs(rest.bridgeHours) + " for the bridge that unlocks the region." : "";
+      const unlocked = this.regionUnlocked(rg.id);
+      const br = this.bridgeFor(rg.id);
+      const focused = s.focusR.indexOf(rg.id) >= 0;
+      const tiles = rg.tiles.map((x) => Object.assign({}, x, { kind: "tile", regionId: rg.id }));
+      const live = tiles.filter((x) => this.targetState(x) === "working");
+      const peopleOn = {};
+      tiles.forEach((x) => (s.workers[x.id] || []).forEach((p) => { peopleOn[p] = 1; }));
+      const brName = br ? (br.mystery && (!this.ed(br.id, "name", br.name) || this.ed(br.id, "name", br.name) === "???") ? "the mystery bridge" : this.ed(br.id, "name", br.name)) : null;
+      regionDrawer = {
+        name: rg.name,
+        lockLabel: unlocked ? "UNLOCKED" : "LOCKED",
+        stateBg: unlocked ? "#1c4a2a" : "#2a251e",
+        stateBorder: unlocked ? "#4fa05f" : "#463d31",
+        stateColor: unlocked ? "#b6f5c4" : "#8a7f6d",
+        unlockNote: rg.id === "central" ? "Open from the start" : unlocked ? "Bridge cleared" : brName ? "Clear " + brName + " to open it" : "No bridge set yet",
+        stats: [
+          { label: "TILES", value: stat.count + "/9", color: "#e8dcc0" },
+          { label: "ROWS", value: stat.rows + "/3", color: "#ffff5c" },
+          { label: "COLUMNS", value: stat.cols + "/3", color: "#ffff5c" },
+          { label: "MIDDLE", value: stat.mid ? "YES" : "NO", color: stat.mid ? "#b6f5c4" : "#a2957a" },
+          { label: "BLACKOUT", value: stat.blackout ? "YES" : "NO", color: stat.blackout ? "#b6f5c4" : "#a2957a" },
+          { label: "POINTS", value: stat.points, color: "#7fd695" },
+          { label: "EST. TIME", value: rest.rated ? this.fmtHrs(rest.hours) : "—", color: "#ffe08a" }
+        ],
+        estimateLine: restLine,
+        bridgeLine: restBridgeLine,
+        hasBridgeLine: !!restBridgeLine,
+        complete: stat.blackout,
+        completeLabel: "REGION COMPLETE · ALL 9 TILES · +" + stat.points + " PTS",
+        activeLine: live.length ? live.length + (live.length === 1 ? " tile is" : " tiles are") + " being worked: " + live.map((x) => this.ed(x.id, "name", x.n)).join(", ") : "Nothing being worked in this region yet.",
+        peopleLine: Object.keys(peopleOn).length ? Object.keys(peopleOn).length + " working here: " + Object.keys(peopleOn).join(", ") : "Nobody working here yet.",
+        hasBridge: !!br,
+        bridge: bridgeView(br) || emptyBridge,
+        view: () => this.save({ region: rg.id, openRegion: null, tab: "board" }),
+        focusLabel: focused ? "Drop region focus" : "Focus this region",
+        focusBg: focused ? "#4a3f22" : "#332b21",
+        toggleFocus: () => this.save({ focusR: this.toggleIn(s.focusR, rg.id) })
+      };
+    }
+
+    const intentBtn = (id, mine, v, label) => {
+      const on = mine === v;
+      const tone = { want: ["#4f8a3c", "#2f4229", "#dff7d0"], ok: ["#a8862c", "#4a3f22", "#ffe9a8"], no: ["#8a4a3a", "#3f2620", "#f0b8a8"] }[v];
+      return {
+        label: label,
+        border: on ? tone[0] : "#6b5c44",
+        bg: on ? tone[1] : "#332b21",
+        color: on ? tone[2] : "#a2957a",
+        set: () => this.setIntent(id, v)
+      };
+    };
+
+    const PLAN_TONE = {
+      want: { border: "#4fa05f", bg: "#1c4a2a", color: "#b6f5c4", badge: "WANT" },
+      ok: { border: "#a8862c", bg: "#4a3f22", color: "#ffe9a8", badge: "WILLING" },
+      no: { border: "#8a4a3a", bg: "#3f2620", color: "#f0b8a8", badge: "WON'T" },
+      "": { border: "#6b5c44", bg: "#453c2e", color: "#c8b98f", badge: "—" }
+    };
+
+    const planTileView = (t) => {
+      const mine = (s.intents[t.id] || {})[who] || "";
+      const tone = PLAN_TONE[mine];
+      const c = this.intentCounts(t.id);
+      const bar = this.intentBar(t.id);
+      const frozen = t.id === FREE_SPACE;
+      return {
+        name: this.ed(t.id, "name", t.n),
+        hasRules: this.tileRuleList(t.id).length > 0,
+        badge: tone.badge,
+        badgeColor: tone.color,
+        border: tone.border,
+        bg: tone.bg,
+        color: tone.color,
+        count: c.total ? c.want + "·" + c.ok + "·" + c.no : "",
+        countColor: "#a2957a",
+        hasIntent: bar.has,
+        wantW: bar.wantW,
+        okW: bar.okW,
+        noW: bar.noW,
+        clickable: !frozen,
+        frozen: frozen,
+        open: frozen ? () => {} : () => this.save({ planPick: t.id })
+      };
+    };
+
+    const planRegions = s.regions.map((r) => {
+      let want = 0, ok = 0, no = 0, unsaid = 0;
+      r.tiles.forEach((t) => {
+        if (t.id === FREE_SPACE) return;
+        const v = (s.intents[t.id] || {})[who];
+        if (v === "want") want++; else if (v === "ok") ok++; else if (v === "no") no++; else unsaid++;
+      });
+      const sel = s.region === r.id;
+      return {
+        id: r.id,
+        name: r.name,
+        summaryLine: want + " want · " + ok + " willing · " + no + " won't · " + unsaid + " unanswered",
+        chipLabel: r.name.toUpperCase() + (unsaid ? " · " + unsaid : " ✓"),
+        chipBorder: sel ? "#ff981f" : "#6b5c44",
+        chipBg: sel ? "#4a3f22" : "#332b21",
+        chipColor: sel ? "#ffe9a8" : "#a2957a",
+        select: () => this.save({ region: r.id }),
+        tiles: r.tiles.map(planTileView)
+      };
+    });
+
+    const planCurrent = planRegions.filter((r) => r.id === s.region)[0] || planRegions[0] || null;
+
+    let planPick = null;
+    const pt = s.planPick ? this.findTarget(s.planPick) : null;
+    if (pt) {
+      const pid = pt.id;
+      const mine = (s.intents[pid] || {})[who] || "";
+      const btn = (v, label) => {
+        const on = mine === v;
+        const tone = PLAN_TONE[v];
+        return {
+          label: label,
+          border: on ? tone.border : "#6b5c44",
+          bg: on ? tone.bg : "#332b21",
+          color: on ? tone.color : "#a2957a",
+          set: () => { this.setIntent(pid, v); }
+        };
+      };
+      const c = this.intentCounts(pid);
+      const names = (v, word) => {
+        const list = this.intentNames(pid, v);
+        return list.length ? word + ": " + list.join(", ") : "";
+      };
+      planPick = {
+        name: this.ed(pid, "name", pt.n || pt.name),
+        regionLabel: (pt.regionName || "BRIDGE").toUpperCase(),
+        objective: this.ed(pid, "o", pt.o),
+        source: pt.s || "—",
+        mineLabel: mine ? "You said: " + PLAN_TONE[mine].badge : "You haven't answered this one",
+        mineColor: mine ? PLAN_TONE[mine].color : "#a2957a",
+        want: btn("want", "WANT"),
+        ok: btn("ok", "WILLING"),
+        no: btn("no", "WON'T"),
+        tally: c.total ? c.want + " want · " + c.ok + " willing · " + c.no + " won't" : "Nobody has answered this tile yet",
+        wantNames: names("want", "Want it"), hasWantNames: !!names("want", "Want it"),
+        okNames: names("ok", "Willing"), hasOkNames: !!names("ok", "Willing"),
+        noNames: names("no", "Won't"), hasNoNames: !!names("no", "Won't"),
+        details: () => this.save({ planPick: null, open: pid })
+      };
+    }
+
+    const planTotals = (() => {
+      let want = 0, ok = 0, no = 0, unsaid = 0;
+      s.regions.forEach((r) => r.tiles.forEach((t) => {
+        if (t.id === FREE_SPACE) return;
+        const v = (s.intents[t.id] || {})[who];
+        if (v === "want") want++; else if (v === "ok") ok++; else if (v === "no") no++; else unsaid++;
+      }));
+      return { want: want, ok: ok, no: no, unsaid: unsaid };
+    })();
+
+    const tabList = [
+      { key: "board", label: "BOARD" },
+      { key: "plan", label: "PLANNING" },
+      { key: "mine", label: "MY TILES" },
+      { key: "setup", label: "MY SETUP" },
+      { key: "rules", label: "RULES" }
+    ].concat(isLeader ? [{ key: "team", label: "ROSTER" }] : []);
+
+    const tabs = tabList.map((tb) => ({
+      label: tb.label,
+      border: s.tab === tb.key ? "#ff981f" : "#6b5c44",
+      bg: s.tab === tb.key ? "#4a3f22" : "#332b21",
+      color: s.tab === tb.key ? "#ffe9a8" : "#a2957a",
+      go: () => this.save(tb.key === "setup" ? Object.assign({ tab: tb.key }, this.seedFor(who)) : { tab: tb.key })
+    }));
+
+    const rareCard = (rid) => {
+      const on = s.formRares.indexOf(rid) >= 0;
+      return {
+        stateLabel: on ? "Got it" : "Tap if you own it",
+        border: on ? "#4f8a3c" : "#6b5c44",
+        bg: on ? "#2f4229" : "#453c2e",
+        color: on ? "#dff7d0" : "#e8dcc0",
+        toggle: () => this.setState((prev) => ({ formRares: this.toggleIn(prev.formRares, rid) }))
+      };
+    };
+
+    const needsProfile = s.ready && !!s.me && !isLeader && !s.profiles[s.me];
+
+    return {
+      appReady: s.ready && !!s.me && !needsProfile,
+      needsLogin: s.ready && !s.me,
+      needsProfile: needsProfile,
+      whoami: s.me ? (isLeader ? "LEADER · " + LEADER_NAME : s.me) : "",
+      isLeader: isLeader,
+      switchUser: () => this.save({ me: null, tab: "board", open: null, openRegion: null, planPick: null }),
+      rosterView: s.roster.map((p) => ({ name: p, pick: () => this.save({ me: p }) })),
+      formWho: who || "",
+      cardScythe: rareCard("scythe"),
+      cardShadow: rareCard("shadow"),
+      cardTbow: rareCard("tbow"),
+      formTask: s.formTask,
+      setFormTask: (e) => this.setState({ formTask: e.target.value }),
+      saveProfile: () => this.storeProfile(),
+      saveLabel: "SAVE SETUP",
+      tabs: tabs,
+      isBoard: s.tab === "board",
+      isPlan: s.tab === "plan",
+      planRegions: planRegions,
+      planCurrent: planCurrent || {},
+      hasPlanCurrent: !!planCurrent,
+      hasPlanPick: !!planPick,
+      planPick: planPick || {},
+      closePlanPick: () => this.save({ planPick: null }),
+      planTotals: planTotals.want + " want · " + planTotals.ok + " willing · " + planTotals.no + " won't · " + planTotals.unsaid + " not answered",
+      isMine: s.tab === "mine",
+      isSetup: s.tab === "setup",
+      isTeam: s.tab === "team" && isLeader,
+      isRules: s.tab === "rules",
+      regionsView: regionsView,
+      current: current || {},
+      hasCurrent: !!current,
+      score: this.scoreOf(),
+      focusList: focusList,
+      hasFocus: focusList.length > 0,
+      myOn: myOn, noOn: myOn.length === 0,
+      teamView: teamView,
+      ruleSections: (s.ruleSections || []).map((sec) => ({
+        title: sec.title,
+        items: (sec.items || []).map((it) => {
+          const ids = (it.tiles || []).filter((id) => !!this.findTarget(id));
+          return {
+            text: it.text,
+            hasTiles: ids.length > 0,
+            tileLine: ids.length ? "Applies to: " + ids.map((id) => this.nameOf(id)).join(" · ") : ""
+          };
+        })
+      })),
+      hasDrawer: !!drawer,
+      drawer: drawer || {},
+      closeDrawer: () => this.save({ open: null }),
+      hasRegionDrawer: !!regionDrawer,
+      regionDrawer: regionDrawer || {},
+      closeRegion: () => this.save({ openRegion: null })
+    };
+  }
+}
+
+</script>
+</body>
+</html>

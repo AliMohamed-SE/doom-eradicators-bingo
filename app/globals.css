@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+/*
+  Doom Eradicators — Celeris August Bingo.
+  Palette and type are final (see README token table). Semantic names only;
+  no arbitrary hex in JSX except genuine one-offs. Everything is square:
+  all radius tokens are 0.
+*/
+@theme {
+  /* Fonts (wired through next/font, exposed as CSS vars) */
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* Nothing is rounded */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+
+  /* Surfaces */
+  --color-bg: #16130f;
+  --color-bg-wash: #2a2419;
+  --color-surface: #3e3529;
+  --color-surface-dark: #332b21;
+  --color-surface-inset: #241e16;
+  --color-surface-inset2: #2f281f;
+  --color-surface-btn: #453c2e;
+
+  /* Parchment (read-heavy blocks) */
+  --color-parchment: #d8ccb0;
+  --color-parchment-ink: #2b2318;
+  --color-parchment-head: #5d4b28;
+  --color-parchment-rule: #b7a884;
+  --color-parchment-tileref: #7a5a1e;
+  --color-parchment-foot: #5d5240;
+
+  /* Borders */
+  --color-border-default: #6b5c44;
+  --color-border-dim: #463d31;
+
+  /* Text */
+  --color-ink: #e8dcc0;
+  --color-ink-dim: #a2957a;
+  --color-ink-dim2: #c8b98f;
+  --color-ink-faint: #8a7f6d;
+
+  /* Accents */
+  --color-orange: #ff981f;
+  --color-yellow: #ffff5c;
+
+  /* Amber (rules, leader, estimates) */
+  --color-amber-border: #a8862c;
+  --color-amber-bg: #3a2f18;
+  --color-amber-bg2: #4a3a1c;
+  --color-amber-btn: #4a3f22;
+  --color-amber-text: #ffb347;
+  --color-amber-body: #ffe08a;
+  --color-amber-soft: #ffe9a8;
+
+  /* Green (done, claim) */
+  --color-green-border: #4fa05f;
+  --color-green-border2: #4f8a3c;
+  --color-green-bg: #1c4a2a;
+  --color-green-bg2: #2f4229;
+  --color-green-bg3: #24301d;
+  --color-green-bg4: #2b3524;
+  --color-green-text: #b6f5c4;
+  --color-green-text2: #dff7d0;
+  --color-green-soft: #7fd695;
+  --color-green-soft2: #8fbf85;
+
+  /* Blue (in progress) */
+  --color-blue-border: #3f7e99;
+  --color-blue-bg: #17313d;
+  --color-blue-text: #9fdcf0;
+
+  /* Red (remove, "won't") */
+  --color-red-border: #8a4a3a;
+  --color-red-bg: #3f2620;
+  --color-red-text: #f0b8a8;
+  --color-red-text2: #c78b73;
+
+  /* Links */
+  --color-link: #6bd8ff;
+  --color-link-hover: #ffd77a;
+
+  /* Tile-state fills (drive all tile styling) */
+  --color-tile-locked-bg: #2a251e;
+  --color-tile-locked-border: #463d31;
+  --color-tile-locked-text: #8a7f6d;
+  --color-tile-available-bg: #453c2e;
+  --color-tile-available-border: #6b5c44;
+  --color-tile-available-text: #e8dcc0;
+  --color-tile-working-bg: #17313d;
+  --color-tile-working-border: #3f7e99;
+  --color-tile-working-text: #9fdcf0;
+  --color-tile-done-bg: #1c4a2a;
+  --color-tile-done-border: #4fa05f;
+  --color-tile-done-text: #b6f5c4;
+
+  /* The single board breakpoint: phone view below, nine-region grid at/above */
+  --breakpoint-board: 940px;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-link-hover);
+}
+
+/* Recurring chrome treatments — defined once, used across the app. */
+@utility page-wash {
+  background-color: var(--color-bg);
+  background-image: radial-gradient(circle at 50% 0%, var(--color-bg-wash) 0%, var(--color-bg) 70%);
+}
+@utility panel-gradient {
+  background-image: linear-gradient(var(--color-surface), var(--color-surface-dark));
+}
+@utility region-gradient {
+  background-image: linear-gradient(var(--color-surface), var(--color-surface-inset2));
+}
+@utility header-gradient {
+  background-image: linear-gradient(var(--color-surface), var(--color-bg-wash));
+}
+@utility sheet-gradient {
+  background-image: linear-gradient(var(--color-surface), var(--color-bg-wash));
+}
+@utility focus-gradient {
+  background-image: linear-gradient(var(--color-amber-bg2), #382c15);
+}
+@utility mine-gradient {
+  background-image: linear-gradient(#33402c, #29331f);
+}
+@utility roster-btn-gradient {
+  background-image: linear-gradient(#4a4030, #3a3226);
+}
+
+/* Thin scrollbars for the horizontal tab / chip rows */
+.scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.scroll-x::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+}
+
+/* Pixel-art item sprites */
+.pixelated {
+  image-rendering: pixelated;
+}
