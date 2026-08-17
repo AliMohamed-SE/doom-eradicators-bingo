@@ -110,18 +110,18 @@ export const REGIONS: Region[] = [
       i: { need: 2, c: "w", d: [{ n: "Pyramid Plunder (91 Thieving, full run)", r: 63.5, k: 13, u: "runs" }], note: "Sceptre only rolls in the final rooms — skipping rooms lowers the effective rate." } }),
     t("KQ? Pee Yew", "Get a Dragon Pickaxe from KQ", { s: "Kalphite Queen", r: "1/400", w: "https://oldschool.runescape.wiki/w/Dragon_pickaxe",
       i: { need: 1, c: "w", d: [{ n: "Kalphite Queen", r: 400, k: 30 }] } }),
-    t("Thread the Needle", "Get 1x Abyssal Needle from GOTR", { s: "Guardians of the Rift", r: "1/300", w: "https://oldschool.runescape.wiki/w/Abyssal_needle",
-      i: { need: 1, c: "e", d: [{ n: "Guardians of the Rift", r: 300, k: 18, u: "reward rolls" }], note: "1/300 per reward roll. A high-points game is roughly 3 rolls, about 6 games an hour." } }),
+    t("Thread the Needle", "Get 1x Abyssal Dye from GOTR", { s: "Guardians of the Rift", r: "1/1,200 per reward roll for each colour — 1/400 for any dye", w: "https://oldschool.runescape.wiki/w/Abyssal_dye",
+      i: { need: 1, c: "e", d: [{ n: "Guardians of the Rift", r: 400, k: 18, u: "reward rolls" }], note: "Abyssal blue, green and red dye are 1/1,200 each per reward roll — any of the three clears the tile, so ≈ 1/400 a roll. A high-points game is roughly 3 rolls, about 6 games an hour." } }),
     t("My Snake is Bigger", "Get 1x any Virtus or Leviathan's Lure from The Leviathan", { s: "The Leviathan", r: "Virtus pieces and Leviathan's lure are rare-table drops — combined objective, no single rate.", w: "https://oldschool.runescape.wiki/w/The_Leviathan",
       i: { need: 1, c: "e", d: [{ n: "The Leviathan (any qualifying drop)", r: 307, k: 20 }], note: "Virtus pieces 1/1,536 each, Leviathan's lure 1/768 — combined ≈ 1/307 per kill." } }),
     t("Budget 150's", "Complete a 500 TOA with tier 70 and below gear (you get yellow Keris)", { s: "Tombs of Amascut", r: "N/A — challenge", w: "https://oldschool.runescape.wiki/w/Tombs_of_Amascut", ch: 1 }),
     t("Plug Prepper", "Complete a Master Wand from scratch", { s: "Mage Training Arena", r: "N/A — deterministic acquisition", w: "https://oldschool.runescape.wiki/w/Master_wand",
       i: { c: "e", fix: 14, note: "No drop rate — the wand costs 120 pizazz points in each of the four MTA rooms. Roughly 12–16 hours depending on how efficient the Alchemist and Graveyard rooms are played." } }),
-    t("Masori Chaps MIA", "Get 3x Masori from TOA", { s: "Tombs of Amascut", r: "At raid levels 150–300 each specific Masori piece is 1/12 conditional on a purple; purple rate is raid-level/contribution dependent.", w: "https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)",
+    t("Masori Chaps MIA", "Get 3x Masori Pieces or a Shadow from TOA", { s: "Tombs of Amascut", r: "At raid levels 150–300 each Masori piece is 1/12 of the purple table and Tumeken's shadow 1/24; at raid level 500 they are 1/8.25 and 1/16.5. Purple rate is raid-level/contribution dependent.", w: "https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)",
       i: { need: 3, c: "u", d: [
         { n: "TOA 300 invocation (solo)", r: 96, k: 3.5, u: "raids" },
-        { n: "TOA 500 invocation (solo)", r: 50, k: 2.5, u: "raids" }
-      ], note: "Any Masori piece is about 1/4 of purples. Purple chance ≈ 1/24 at 300 and ≈ 1/12.5 at 500 solo — verify against your own invocation and party size." } }),
+        { n: "TOA 500 invocation (solo)", r: 34, k: 2.5, u: "raids" }
+      ], note: "Any Masori piece is 3/12 of purples at 300 and 3/8.25 at 500. Purple chance ≈ 1/24 at 300 and ≈ 1/12.5 at 500 solo. A Tumeken's shadow clears the tile on its own, but at ≈ 1/576 a raid at 300 and ≈ 1/206 at 500 it is far rarer than the three pieces — the rows above are the Masori route." } }),
     t("Temp Tome Time", "Get 1x Tome of Water / Harpoonfish from Tempoross", { s: "Tempoross reward", r: "Tome of water 1/1,600. Barrel/harpoon rewards use their own reward-table mechanics.", w: "https://oldschool.runescape.wiki/w/Tempoross",
       i: { need: 1, c: "e", d: [{ n: "Tempoross reward pool", r: 1600, k: 40, u: "reward rolls" }], note: "1/1,600 per reward roll; a full-participation game is roughly 8 rolls at about 5 games an hour." } }),
     t("Three Finger Death Punch", "Get 3x Lightbearer from TOA", { s: "Tombs of Amascut", r: "At raid levels 150–300 Lightbearer is weighted 7/24 conditional on a purple.", w: "https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)",
@@ -198,11 +198,11 @@ export const REGIONS: Region[] = [
       i: { need: 1, c: "w", d: [{ n: "Sarachnis", r: 384, k: 50 }] } }),
     t("To All the Irons", "Get 1x Ferocious Gloves or Dragon Hunter Lance", { s: "Alchemical Hydra", r: "Hydra's claw 1/1,001; Hydra leather approximately 1/514 on the base table.", w: "https://oldschool.runescape.wiki/w/Alchemical_Hydra",
       i: { need: 1, c: "w", d: [{ n: "Alchemical Hydra (leather or claw)", r: 340, k: 27 }], note: "Hydra leather ≈ 1/514 (ferocious gloves) and hydra's claw 1/1,001 (lance) — combined ≈ 1/340 a kill." } }),
-    t("Missing My Top", "Get any Ancestral Piece", { s: "Chambers of Xeric", r: "Ancestral hat / top / bottom are 4/79 each on the unique table — 12/79 combined.", w: "https://oldschool.runescape.wiki/w/Chest_(Chambers_of_Xeric)",
+    t("Missing My Top", "Get 1x Ancestral Piece or a Twisted Bow", { s: "Chambers of Xeric", r: "Since the August 2026 reweight the ancestral hat / top / bottom are 4/60 each and the twisted bow 2/60 on the unique table — 14/60 combined.", w: "https://oldschool.runescape.wiki/w/Chest_(Chambers_of_Xeric)",
       i: { need: 1, c: "w", d: [
-        { n: "CoX solo, ~30k points", r: 190, k: 1.5, u: "raids" },
-        { n: "CoX 5-man, ~30k points each", r: 38, k: 2, u: "raids" }
-      ], note: "Purple chance is total points ÷ 8,676, and the three ancestral pieces are 12/79 of the unique table. A team rolls far more often because points stack — but the piece lands on one player." } })
+        { n: "CoX solo, ~30k points", r: 124, k: 1.5, u: "raids" },
+        { n: "CoX 5-man, ~30k points each", r: 25, k: 2, u: "raids" }
+      ], note: "Purple chance is total points ÷ 8,676, and the three ancestral pieces plus the twisted bow are 14/60 of the unique table. A team rolls far more often because points stack — but the drop lands on one player." } })
   ]},
   { id: "central", name: "Misthlain", tiles: [
     t("We have the beef", "Get a Beef pet", { s: "Brutus / Demonic Brutus", r: "Beef is 1/1,000 from Brutus and 1/400 from Demonic Brutus.", w: "https://oldschool.runescape.wiki/w/Beef",
