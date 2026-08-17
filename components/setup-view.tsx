@@ -73,7 +73,7 @@ export function SetupView() {
           setTask(e.target.value);
           setSaved(false);
         }}
-        placeholder="What are you grinding right now?"
+        placeholder="e.g. Basilisk Knights, or Alchemical Hydra"
         className="min-h-[48px] w-full border-2 border-border-default bg-parchment p-3 text-[15px] text-parchment-ink outline-none placeholder:text-[#7a6f57]"
       />
 

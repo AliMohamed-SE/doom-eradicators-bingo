@@ -119,7 +119,7 @@ export function LinkForm({ available }: { available: string[] }) {
             type="text"
             value={task}
             onChange={(e) => setTask(e.target.value)}
-            placeholder="e.g. Slayer task: Basilisk Knights, or grinding TOA"
+            placeholder="e.g. Basilisk Knights, or Alchemical Hydra"
             className="min-h-[48px] w-full border-2 border-border-default bg-parchment p-3 text-[15px] text-parchment-ink outline-none placeholder:text-[#7a6f57]"
           />
         </div>
