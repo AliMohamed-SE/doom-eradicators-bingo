@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useApp } from "./app-provider";
+import { useConfirm } from "./confirm";
 import { SheetShell } from "./sheet-shell";
 import { REGIONS } from "@/lib/board-data";
 import {
@@ -18,6 +19,7 @@ import { cn } from "@/lib/cn";
 
 export function RegionSheet({ id }: { id: string }) {
   const { state, isLeader, playerName, closeDrawer, selectRegion, openTile, run } = useApp();
+  const confirm = useConfirm();
   const router = useRouter();
   const region = REGIONS.find((r) => r.id === id);
   if (!region) return null;
@@ -177,9 +179,14 @@ export function RegionSheet({ id }: { id: string }) {
           {stat.blackout ? (
             <button
               type="button"
-              onClick={() => {
-                if (confirm(`Clear all 9 tiles in ${region.name}? This resets their progress to 0.`))
-                  run(() => forceRegionCompletion(id, false));
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "CLEAR REGION?",
+                  message: `This resets all 9 tiles in ${region.name} back to 0. Are you sure?`,
+                  confirmLabel: "CLEAR IT",
+                  tone: "danger",
+                });
+                if (ok) run(() => forceRegionCompletion(id, false));
               }}
               className="min-h-[46px] w-full cursor-pointer border-2 border-red-border bg-red-bg p-[11px] text-[14px] text-red-text"
             >
@@ -188,9 +195,13 @@ export function RegionSheet({ id }: { id: string }) {
           ) : (
             <button
               type="button"
-              onClick={() => {
-                if (confirm(`Mark all 9 tiles in ${region.name} done? Works even if it's locked.`))
-                  run(() => forceRegionCompletion(id, true));
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "MARK REGION DONE?",
+                  message: `This marks all 9 tiles in ${region.name} done, even if it's locked. Are you sure?`,
+                  confirmLabel: "MARK DONE",
+                });
+                if (ok) run(() => forceRegionCompletion(id, true));
               }}
               className="min-h-[46px] w-full cursor-pointer border-2 border-green-border2 bg-green-bg2 p-[11px] text-[14px] text-green-text2"
             >

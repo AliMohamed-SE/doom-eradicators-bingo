@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useApp } from "./app-provider";
+import { useConfirm } from "./confirm";
 import { RARES, isLeaderPlayer } from "@/lib/board-data";
 import { findTarget } from "@/lib/scoring";
 import { unlinkPlayer } from "@/app/actions";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/cn";
 
 export function RosterView() {
   const { state, players, isLeader, openTile, run } = useApp();
+  const confirm = useConfirm();
 
   return (
     <div className="border-2 border-border-default panel-gradient p-3">
@@ -80,13 +82,14 @@ export function RosterView() {
                   {p.linked && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Unlink ${p.name}? Their Discord is removed and they'll have to sign in and pick their character again. Their progress is kept.`,
-                          )
-                        )
-                          run(() => unlinkPlayer(p.id));
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "UNLINK MEMBER?",
+                          message: `${p.name}'s Discord is removed and they'll have to sign in and pick their character again. Their progress is kept.`,
+                          confirmLabel: "UNLINK",
+                          tone: "danger",
+                        });
+                        if (ok) run(() => unlinkPlayer(p.id));
                       }}
                       className="min-h-[36px] cursor-pointer border-2 border-red-border bg-red-bg p-[6px_12px] font-mono text-[11px] text-red-text"
                     >

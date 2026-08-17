@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useApp } from "./app-provider";
+import { useConfirm } from "./confirm";
 import { signOut, unlockLeader, lockLeader } from "@/app/actions";
 import { scoreOf } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
@@ -17,10 +18,13 @@ const TABS = [
 
 export function Header() {
   const { me, isLeader, canBeLeader, state, run } = useApp();
+  const confirm = useConfirm();
   const pathname = usePathname();
   const score = scoreOf(state.done);
 
-  const tabs = isLeader ? [...TABS, { href: "/roster", label: "ROSTER" }] : TABS;
+  const tabs = isLeader
+    ? [...TABS, { href: "/roster", label: "ROSTER" }, { href: "/contrib", label: "CONTRIB" }]
+    : TABS;
 
   function unlock() {
     const code = window.prompt("Leader code:");
@@ -31,8 +35,14 @@ export function Header() {
     });
   }
 
-  function lock() {
-    if (window.confirm("Lock leader controls on this device?")) run(() => lockLeader());
+  async function lock() {
+    const ok = await confirm({
+      title: "LOCK LEADER?",
+      message: "Lock leader controls on this device? You'll need the code again to unlock.",
+      confirmLabel: "LOCK",
+      tone: "danger",
+    });
+    if (ok) run(() => lockLeader());
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useApp, patchProgress, patchClaim } from "./app-provider";
+import { useConfirm } from "./confirm";
 import { SheetShell } from "./sheet-shell";
 import { SKIN } from "./variants";
 import { RARES } from "@/lib/board-data";
@@ -31,8 +32,11 @@ const STATE_LABEL = { locked: "LOCKED", available: "OPEN", working: "ON IT", don
 export function TileSheet({ id }: { id: string }) {
   const app = useApp();
   const { state, me, isLeader, playerById, playerName, completionMeta, closeDrawer, run } = app;
+  const confirm = useConfirm();
   const target = findTarget(id);
   if (!target) return null;
+
+  const displayName = target.kind === "bridge" ? target.name : target.n;
 
   const uid = me?.id ?? "";
   const st = tileState(target, state);
@@ -157,9 +161,17 @@ export function TileSheet({ id }: { id: string }) {
             </button>
             <button
               type="button"
-              onClick={() =>
-                run(() => logProgress(id, 1), uid ? patchProgress(uid, id, 1, goal) : undefined)
-              }
+              onClick={async () => {
+                if (!isDone && prog + 1 >= goal) {
+                  const ok = await confirm({
+                    title: "COMPLETE TILE?",
+                    message: `This logs the last of the goal and marks "${displayName}" done. Are you sure?`,
+                    confirmLabel: "COMPLETE IT",
+                  });
+                  if (!ok) return;
+                }
+                run(() => logProgress(id, 1), uid ? patchProgress(uid, id, 1, goal) : undefined);
+              }}
               className="min-h-[48px] w-[48px] cursor-pointer border-2 border-amber-border bg-amber-btn text-[20px] text-amber-soft"
             >
               +
