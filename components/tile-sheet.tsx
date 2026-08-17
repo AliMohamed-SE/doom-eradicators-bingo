@@ -363,17 +363,11 @@ export function TileSheet({ id }: { id: string }) {
 
         {info.best && (
           <div className="border-2 border-amber-border bg-amber-bg p-[10px]">
-            <div className="font-mono text-[11px] text-amber-text">EST. TIME TO COMPLETE</div>
+            <div className="font-mono text-[11px] text-amber-text">EST. TIME TO COMPLETE · SOLO</div>
             <div className="mt-[6px] font-mono text-[21px] text-amber-body">
               ≈ {fmtHrs(info.best)}
             </div>
             <div className="mt-[5px] text-[14px] leading-[1.35] text-ink-dim2">{estLine}</div>
-            {crew.length > 1 && (
-              <div className="mt-[5px] text-[14px] text-green-text">
-                {crew.length} on this tile → ≈ {fmtHrs(info.best / crew.length)} each if you split
-                the grind.
-              </div>
-            )}
           </div>
         )}
 

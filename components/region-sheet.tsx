@@ -128,8 +128,8 @@ export function RegionSheet({ id }: { id: string }) {
         <div className="text-[15px] leading-[1.35] text-amber-body">{restLine}</div>
         {bridgeLine && <div className="text-[14px] leading-[1.35] text-amber-text">{bridgeLine}</div>}
         <div className="text-[12px] leading-[1.35] text-ink-dim">
-          Sum of every open tile&apos;s own estimate, one player per tile. Split tiles across people
-          and it drops fast.
+          Sum of every open tile&apos;s own solo estimate. A reference figure only, it comes down as
+          tiles get completed.
         </div>
       </div>
 
