@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useApp } from "./app-provider";
-import { switchCharacter, unlockLeader, lockLeader } from "@/app/actions";
+import { signOut, unlockLeader, lockLeader } from "@/app/actions";
 import { scoreOf } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
 
@@ -18,7 +18,6 @@ const TABS = [
 export function Header() {
   const { me, isLeader, canBeLeader, state, run } = useApp();
   const pathname = usePathname();
-  const router = useRouter();
   const score = scoreOf(state.done);
 
   const tabs = isLeader ? [...TABS, { href: "/roster", label: "ROSTER" }] : TABS;
@@ -74,15 +73,10 @@ export function Header() {
           )}
           <button
             type="button"
-            onClick={() =>
-              run(async () => {
-                await switchCharacter();
-                router.push("/onboarding");
-              })
-            }
+            onClick={() => run(() => signOut())}
             className="min-h-[42px] cursor-pointer border-2 border-border-default bg-surface-dark p-[10px] font-mono text-[11px] text-ink-dim"
           >
-            SWITCH
+            LOG OUT
           </button>
         </div>
       </div>

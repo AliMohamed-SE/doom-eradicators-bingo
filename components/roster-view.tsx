@@ -4,10 +4,11 @@ import Image from "next/image";
 import { useApp } from "./app-provider";
 import { RARES, isLeaderPlayer } from "@/lib/board-data";
 import { findTarget } from "@/lib/scoring";
+import { unlinkPlayer } from "@/app/actions";
 import { cn } from "@/lib/cn";
 
 export function RosterView() {
-  const { state, players, openTile } = useApp();
+  const { state, players, isLeader, openTile, run } = useApp();
 
   return (
     <div className="border-2 border-border-default panel-gradient p-3">
@@ -65,6 +66,34 @@ export function RosterView() {
                 </div>
               ) : (
                 <div className="mt-2 text-[14px] text-ink-dim">Not on anything</div>
+              )}
+              {isLeader && (
+                <div className="mt-[10px] flex items-center justify-between gap-2 border-t border-border-dim pt-[8px]">
+                  <span
+                    className={cn(
+                      "font-mono text-[11px]",
+                      p.linked ? "text-green-soft2" : "text-ink-dim",
+                    )}
+                  >
+                    {p.linked ? "● Discord linked" : "○ not linked"}
+                  </span>
+                  {p.linked && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Unlink ${p.name}? Their Discord is removed and they'll have to sign in and pick their character again. Their progress is kept.`,
+                          )
+                        )
+                          run(() => unlinkPlayer(p.id));
+                      }}
+                      className="min-h-[36px] cursor-pointer border-2 border-red-border bg-red-bg p-[6px_12px] font-mono text-[11px] text-red-text"
+                    >
+                      UNLINK
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );

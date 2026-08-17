@@ -1,7 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
 
-const PLAYER_COOKIE = "de_player";
+// Identity comes from the Discord auth session (see lib/auth.ts). The only cookie
+// here is the per-device leader-code unlock.
 const LEADER_COOKIE = "de_leader";
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
@@ -13,26 +14,6 @@ const baseOpts = {
   maxAge: ONE_YEAR,
 };
 
-/** The chosen character's players.id, from the private cookie. */
-export async function getPlayerId(): Promise<string | null> {
-  const store = await cookies();
-  return store.get(PLAYER_COOKIE)?.value ?? null;
-}
-
-export async function setPlayerId(id: string) {
-  const store = await cookies();
-  store.set(PLAYER_COOKIE, id, baseOpts);
-}
-
-export async function clearPlayer() {
-  const store = await cookies();
-  store.delete(PLAYER_COOKIE);
-}
-
-// ---------------------------------------------------------------------------
-// Leader code — a small static gate. A designated leader enters it once per
-// device (nav bar) to activate their controls.
-// ---------------------------------------------------------------------------
 export function verifyLeaderCode(code: string): boolean {
   const secret = process.env.LEADER_CODE;
   return !!secret && code === secret;

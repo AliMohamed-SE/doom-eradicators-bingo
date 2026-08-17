@@ -185,25 +185,6 @@ export function TileSheet({ id }: { id: string }) {
         </div>
       )}
 
-      {/* From planning */}
-      <div className="grid gap-[7px] border-2 border-border-default bg-surface-inset p-[10px]">
-        <div className="font-mono text-[11px] text-ink-dim">FROM PLANNING</div>
-        <div className="text-[15px] text-ink-dim2">
-          {iCount.total
-            ? `${iCount.want} want · ${iCount.ok} willing · ${iCount.no} won't`
-            : "Nobody has answered for this tile yet"}
-        </div>
-        {nameLine("want", "Want it") && (
-          <div className="text-[14px] leading-[1.35] text-green-text">{nameLine("want", "Want it")}</div>
-        )}
-        {nameLine("ok", "Willing") && (
-          <div className="text-[14px] leading-[1.35] text-amber-body">{nameLine("ok", "Willing")}</div>
-        )}
-        {nameLine("no", "Won't") && (
-          <div className="text-[14px] leading-[1.35] text-red-text2">{nameLine("no", "Won't")}</div>
-        )}
-      </div>
-
       {/* I'm on this */}
       {canDown && (
         <button
@@ -275,6 +256,25 @@ export function TileSheet({ id }: { id: string }) {
           )}
         </div>
       )}
+
+      {/* From planning */}
+      <div className="grid gap-[7px] border-2 border-border-default bg-surface-inset p-[10px]">
+        <div className="font-mono text-[11px] text-ink-dim">FROM PLANNING</div>
+        <div className="text-[15px] text-ink-dim2">
+          {iCount.total
+            ? `${iCount.want} want · ${iCount.ok} willing · ${iCount.no} won't`
+            : "Nobody has answered for this tile yet"}
+        </div>
+        {nameLine("want", "Want it") && (
+          <div className="text-[14px] leading-[1.35] text-green-text">{nameLine("want", "Want it")}</div>
+        )}
+        {nameLine("ok", "Willing") && (
+          <div className="text-[14px] leading-[1.35] text-amber-body">{nameLine("ok", "Willing")}</div>
+        )}
+        {nameLine("no", "Won't") && (
+          <div className="text-[14px] leading-[1.35] text-red-text2">{nameLine("no", "Won't")}</div>
+        )}
+      </div>
 
       {/* Leader controls */}
       {isLeader && (

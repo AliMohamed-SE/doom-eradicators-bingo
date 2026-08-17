@@ -1,7 +1,8 @@
 import "server-only";
 import { cache } from "react";
 import { admin } from "./supabase/admin";
-import { getPlayerId, hasLeaderCode } from "./session";
+import { getAuthUser } from "./auth";
+import { hasLeaderCode } from "./session";
 import { isLeaderPlayer } from "./board-data";
 import type { EventState, Intent } from "./scoring";
 import type { RareId } from "./board-data";
@@ -10,7 +11,9 @@ import type { PlayerRow, CompletionMeta, AppSnapshot } from "./types";
 export type { PlayerRow, CompletionMeta } from "./types";
 
 export interface AppData {
-  /** the chosen character's row, or null if they haven't picked one yet */
+  /** signed in with Discord */
+  authed: boolean;
+  /** the linked character's row, or null if this Discord user hasn't linked one */
   me: PlayerRow | null;
   /** the current character is a designated leader (by name or is_leader column) */
   canBeLeader: boolean;
@@ -31,10 +34,10 @@ export const getAppData = cache(loadAppData);
 
 export async function loadAppData(): Promise<AppData> {
   const supabase = admin();
-  const [playerId, codeOk] = await Promise.all([getPlayerId(), hasLeaderCode()]);
+  const [user, codeOk] = await Promise.all([getAuthUser(), hasLeaderCode()]);
 
   const [players, claims, progress, completions, intents, focus] = await Promise.all([
-    supabase.from("players").select("id, name, is_leader, rares, task").order("name"),
+    supabase.from("players").select("id, name, is_leader, rares, task, auth_user_id").order("name"),
     supabase.from("tile_claims").select("tile_id, player_id"),
     supabase.from("tile_progress").select("tile_id, player_id, count"),
     supabase.from("tile_completions").select("tile_id, completed_at, completed_by"),
@@ -42,13 +45,18 @@ export async function loadAppData(): Promise<AppData> {
     supabase.from("focus").select("kind, target_id"),
   ]);
 
-  const playerRows: PlayerRow[] = (players.data ?? []).map((p) => ({
+  const rawPlayers = players.data ?? [];
+  const playerRows: PlayerRow[] = rawPlayers.map((p) => ({
     id: p.id,
     name: p.name,
     is_leader: p.is_leader,
     rares: (p.rares ?? []) as RareId[],
     task: p.task ?? "",
+    linked: !!p.auth_user_id,
   }));
+  const myId = user
+    ? (rawPlayers.find((p) => p.auth_user_id === user.id)?.id ?? null)
+    : null;
 
   const claimMap: Record<string, string[]> = {};
   (claims.data ?? []).forEach((c) => {
@@ -88,10 +96,11 @@ export async function loadAppData(): Promise<AppData> {
     focusTiles,
   };
 
-  const me = playerId ? (playerRows.find((p) => p.id === playerId) ?? null) : null;
+  const me = myId ? (playerRows.find((p) => p.id === myId) ?? null) : null;
   const canBeLeader = me ? isLeaderPlayer(me) : false;
 
   return {
+    authed: !!user,
     me,
     canBeLeader,
     isLeader: canBeLeader && codeOk,

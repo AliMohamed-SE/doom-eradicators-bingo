@@ -8,15 +8,21 @@ Built with **Next.js (App Router, TypeScript)**, **Supabase** (Postgres + Realti
 **Tailwind CSS v4**. Rebuilt to the design in `design-reference/` (the working HTML prototype is the
 source of truth for look, copy, and behaviour).
 
-## Sign-in: there isn't one
+## Sign-in: Discord
 
-This is a small, trusted clan event, so there are no accounts, emails, or passwords. Players **tap
-their character** and play; a private cookie remembers who they are, and tapping the same name on any
-device picks their identity back up. Every write goes through a **server action** using the Supabase
-**service-role key**, so the public key can only *read* (the board + realtime) — the database is not
-writable with the key shipped to the browser. The **leader** unlocks extra controls by typing a
-secret code once (MY SETUP → Leader access), checked server-side against the `LEADER_CODE` env var and
-independent of which name they pick.
+Players sign in with **Discord** (Supabase OAuth). On first login they **link** their Discord to one
+team character — choosing their seat alongside their mega-rares and slayer task. That seat is then
+locked to that Discord account and disappears from everyone else's picker. One Discord ↔ one player,
+both unique (`players.auth_user_id`).
+
+Because the roster is finite, once every seat is linked a newly-arriving Discord has nothing to claim
+and sees an on-theme **TEAM FULL** screen. Existing player rows (e.g. from before this feature) are
+claimable — the real person logs in, picks their name, and inherits the row's progress.
+
+Writes still run through **server actions** using the Supabase **service-role key** (the public key
+can only read — board + realtime). Identity for those writes comes from the Discord session. The
+**leader** additionally unlocks controls with a secret code once per device (nav bar → **UNLOCK
+LEADER**), checked server-side against `LEADER_CODE`.
 
 ## Architecture
 
@@ -65,10 +71,25 @@ Rules held to:
    SUPABASE_SERVICE_ROLE_KEY=...        # secret — server only
    LEADER_CODE=some-secret-code         # what the leader types to unlock controls
    ```
-4. Apply the schema: paste `supabase/migrations/0001_init.sql` into the Supabase **SQL editor** and
-   run it (or `supabase db push` with the CLI). This creates the tables, the read-only RLS policies,
-   and enables Realtime. (No auth config is needed — the app has no login.)
-5. `npm run dev` and open http://localhost:3000. Tap a character to play.
+4. Apply the schema: run `supabase/migrations/0001_init.sql` then `supabase/migrations/0002_discord_auth.sql`
+   in the Supabase **SQL editor** (or `supabase db push`). This creates the tables + read-only RLS,
+   enables Realtime, and adds the `players.auth_user_id` link column.
+5. **Enable Discord auth** (see the Discord setup section below), and add your local + prod URLs under
+   **Authentication → URL Configuration** (Site URL + `http://localhost:3000/auth/callback` and
+   `https://<your-app>.vercel.app/auth/callback` as Redirect URLs).
+6. `npm run dev` and open http://localhost:3000. Sign in with Discord, link your character, play.
+
+### Setting up Discord login
+
+1. **Discord Developer Portal** (https://discord.com/developers/applications) → **New Application**.
+2. **OAuth2** tab → copy the **Client ID** and **Client Secret** (reset the secret to reveal it).
+3. Still on OAuth2 → **Redirects**, add your Supabase callback:
+   `https://<your-project-ref>.supabase.co/auth/v1/callback` (find the exact URL in Supabase →
+   Authentication → Providers → Discord). Save.
+4. **Supabase → Authentication → Providers → Discord**: enable it, paste the Client ID + Client
+   Secret, save.
+5. **Supabase → Authentication → URL Configuration**: set Site URL and add the app's
+   `/auth/callback` redirect URLs (local + prod).
 
 ### The leader
 
@@ -89,7 +110,7 @@ To add or change leaders, edit `LEADER_NAMES`, or promote anyone already playing
 
 Static board content is in code. These tables hold event state (see the migration for full detail):
 
-- `players (id uuid, name unique, is_leader, rares text[], task, created_at)`
+- `players (id uuid, name unique, is_leader, rares text[], task, auth_user_id unique → auth.users, created_at)`
 - `tile_claims (tile_id, player_id, …)` — "I'm on this"
 - `tile_progress (tile_id, player_id, count ≥ 0, …)` — per-player progress
 - `tile_completions (tile_id pk, completed_at, completed_by)` — derived from progress or leader-forced
@@ -110,9 +131,9 @@ trade-offs, made deliberately:
   **no** insert/update/delete policies, so the anon key shipped to the browser cannot write anything
   — it only powers the board and the realtime subscription. Every mutation runs server-side through a
   server action using the **service-role key**, which never leaves the server.
-- **Identity is by trust, like the prototype.** Anyone can tap any character (that's the whole UX),
-  so there's no protection against a clanmate impersonating another player. Acceptable for 17 friends
-  running a two-week event; not what you'd ship to strangers.
+- **Identity is a Discord account.** Each player links their Discord to one seat, and seats are
+  finite, so a clanmate can't impersonate another player or take two seats. Writes are attributed to
+  whichever character the acting Discord is linked to (derived server-side, not client-supplied).
 - **Leader actions are gated server-side** on every call (force-complete, focus, remove crew): the
   action confirms the acting player is a designated leader (`LEADER_NAMES` or the `is_leader` column)
   **and** that the device holds the correct `LEADER_CODE` cookie. So tapping a leader's name is not
@@ -134,9 +155,12 @@ link) with `players.id = auth.uid()` and per-row RLS — see git history for tha
 ## Deploy (Vercel)
 
 1. Import the repo into Vercel.
-2. Add all four env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `LEADER_CODE`. Mark the last two as sensitive.
-3. Deploy, then share the URL with the clan. No auth callback or redirect config needed.
+2. Add all four env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`), `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`),
+   `LEADER_CODE`. Mark the secret key and leader code as sensitive.
+3. In Supabase → Authentication → URL Configuration, add the deployed URL's `/auth/callback` to the
+   redirect allow-list (and set it as Site URL for prod).
+4. Deploy and share the URL with the clan.
 
 ## Out of scope
 

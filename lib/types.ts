@@ -9,6 +9,8 @@ export interface PlayerRow {
   is_leader: boolean;
   rares: RareId[];
   task: string;
+  /** whether a Discord account is currently linked to this seat */
+  linked: boolean;
 }
 
 export interface CompletionMeta {

@@ -1,15 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { admin } from "@/lib/supabase/admin";
-import {
-  getPlayerId,
-  setPlayerId,
-  clearPlayer,
-  hasLeaderCode,
-  verifyLeaderCode,
-  setLeaderCookie,
-} from "@/lib/session";
+import { createSupabaseServer } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth";
+import { hasLeaderCode, verifyLeaderCode, setLeaderCookie } from "@/lib/session";
 import {
   REGIONS,
   RARES,
@@ -26,10 +22,16 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
-async function requirePlayer() {
-  const id = await getPlayerId();
-  if (!id) return null;
-  return id;
+/** The players.id linked to the current Discord user, or null. */
+async function requirePlayer(): Promise<string | null> {
+  const user = await getAuthUser();
+  if (!user) return null;
+  const { data } = await admin()
+    .from("players")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  return data?.id ?? null;
 }
 
 /**
@@ -37,13 +39,13 @@ async function requirePlayer() {
  * leader (name or is_leader column) AND this device must have entered the code.
  */
 async function actingLeader(): Promise<boolean> {
-  const id = await getPlayerId();
-  if (!id) return false;
+  const user = await getAuthUser();
+  if (!user) return false;
   if (!(await hasLeaderCode())) return false;
   const { data } = await admin()
     .from("players")
     .select("name, is_leader")
-    .eq("id", id)
+    .eq("auth_user_id", user.id)
     .maybeSingle();
   return data ? isLeaderPlayer(data) : false;
 }
@@ -52,12 +54,12 @@ async function actingLeader(): Promise<boolean> {
 // Leader code (nav bar) — unlock once per device
 // ---------------------------------------------------------------------------
 export async function unlockLeader(code: string) {
-  const id = await getPlayerId();
-  if (!id) return { error: "Pick a character first." };
+  const user = await getAuthUser();
+  if (!user) return { error: "Sign in first." };
   const { data } = await admin()
     .from("players")
     .select("name, is_leader")
-    .eq("id", id)
+    .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!data || !isLeaderPlayer(data)) return { error: "This character isn't a leader." };
   if (!verifyLeaderCode(code.trim())) return { error: "Wrong code." };
@@ -73,47 +75,87 @@ export async function lockLeader() {
 }
 
 // ---------------------------------------------------------------------------
-// Identity — tap your character, no login
+// Identity — link the Discord account to a team character
 // ---------------------------------------------------------------------------
 
 /**
- * Step 1 of onboarding. If the character already exists, adopt it (returning
- * player, any device) — the caller sends them to the board. If it does not
- * exist yet, do NOT create it here; the caller shows the gear check and calls
- * createProfile() to finish. (Creating + cookie-setting here would make the
- * onboarding page redirect to /board before the gear step could render.)
+ * Claim a team seat for the signed-in Discord user, with the gear-check answers.
+ * The seat must be unclaimed. One Discord ↔ one player (both unique).
  */
-export async function chooseCharacter(name: string) {
-  if (!SELECTABLE_NAMES.includes(name)) return { error: "That name isn't on the roster." };
-  const existing = await admin().from("players").select("id").eq("name", name).maybeSingle();
-  if (existing.error) return { error: existing.error.message };
-  if (existing.data) {
-    await setPlayerId(existing.data.id);
+export async function linkCharacter(input: { name: string; rares: RareId[]; task: string }) {
+  const user = await getAuthUser();
+  if (!user) return { error: "Sign in first." };
+  if (!SELECTABLE_NAMES.includes(input.name)) return { error: "That name isn't on the roster." };
+
+  const db = admin();
+
+  // already linked to a character? nothing to do.
+  const already = await db
+    .from("players")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (already.data) {
     refresh();
-    return { ok: true, exists: true };
+    return { ok: true };
   }
-  return { ok: true, exists: false };
+
+  const validRares = input.rares.filter((r) => RARES.some((x) => x.id === r));
+  const isLead = LEADER_NAMES.includes(input.name);
+  const task = input.task.slice(0, 200);
+
+  const existing = await db
+    .from("players")
+    .select("id, auth_user_id")
+    .eq("name", input.name)
+    .maybeSingle();
+
+  if (existing.data) {
+    if (existing.data.auth_user_id) return { error: "That character is already taken." };
+    // claim the pre-existing (unlinked) row — guard on auth_user_id still null
+    const upd = await db
+      .from("players")
+      .update({ auth_user_id: user.id, rares: validRares, task, is_leader: isLead })
+      .eq("id", existing.data.id)
+      .is("auth_user_id", null)
+      .select("id")
+      .maybeSingle();
+    if (upd.error) return { error: upd.error.message };
+    if (!upd.data) return { error: "That character was just taken — pick another." };
+  } else {
+    const ins = await db
+      .from("players")
+      .insert({ name: input.name, auth_user_id: user.id, rares: validRares, task, is_leader: isLead })
+      .select("id")
+      .single();
+    if (ins.error) {
+      if (ins.error.code === "23505") return { error: "That character was just taken — pick another." };
+      return { error: ins.error.message };
+    }
+  }
+
+  refresh();
+  return { ok: true };
 }
 
-/** Step 2 of onboarding: create the new character with its gear check answers. */
-export async function createProfile(input: { name: string; rares: RareId[]; task: string }) {
-  if (!SELECTABLE_NAMES.includes(input.name)) return { error: "That name isn't on the roster." };
-  const validRares = input.rares.filter((r) => RARES.some((x) => x.id === r));
-  const created = await admin()
+export async function signOut() {
+  const supabase = await createSupabaseServer();
+  await supabase.auth.signOut();
+  await setLeaderCookie(false);
+  redirect("/login");
+}
+
+/**
+ * Leader unlinks a player's Discord: the seat frees up and that person must sign
+ * in and re-pick their character. Their row (name, progress, gear) is kept.
+ */
+export async function unlinkPlayer(playerId: string) {
+  if (!(await actingLeader())) return { error: "Leader only." };
+  const { error } = await admin()
     .from("players")
-    .insert({
-      name: input.name,
-      rares: validRares,
-      task: input.task.slice(0, 200),
-      is_leader: LEADER_NAMES.includes(input.name),
-    })
-    .select("id")
-    .single();
-  if (created.error) {
-    if (created.error.code === "23505") return { error: "Someone just took that name — go back and pick another." };
-    return { error: created.error.message };
-  }
-  await setPlayerId(created.data.id);
+    .update({ auth_user_id: null })
+    .eq("id", playerId);
+  if (error) return { error: error.message };
   refresh();
   return { ok: true };
 }
@@ -129,11 +171,6 @@ export async function saveProfile(input: { rares: RareId[]; task: string }) {
   if (error) return { error: error.message };
   refresh();
   return { ok: true };
-}
-
-export async function switchCharacter() {
-  await clearPlayer();
-  refresh();
 }
 
 // ---------------------------------------------------------------------------
