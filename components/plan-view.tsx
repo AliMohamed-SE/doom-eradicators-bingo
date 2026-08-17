@@ -3,49 +3,57 @@
 import { useApp } from "./app-provider";
 import { PlanTile } from "./plan-tile";
 import { REGIONS, FREE_SPACE, type Region } from "@/lib/board-data";
+import type { EventState } from "@/lib/scoring";
+import type { PlayerRow } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
-function myTotals(intentsForMe: (tileId: string) => string | undefined) {
-  let want = 0,
-    ok = 0,
-    no = 0,
-    unsaid = 0;
-  REGIONS.forEach((r) =>
-    r.tiles.forEach((t) => {
-      if (t.id === FREE_SPACE) return;
-      const v = intentsForMe(t.id);
-      if (v === "want") want++;
-      else if (v === "ok") ok++;
-      else if (v === "no") no++;
-      else unsaid++;
-    }),
-  );
-  return { want, ok, no, unsaid };
+/** Answerable tiles (the free space is never answered). */
+function answerable(region: Region) {
+  return region.tiles.filter((t) => t.id !== FREE_SPACE);
 }
 
-function regionSummary(region: Region, forMe: (id: string) => string | undefined) {
-  let want = 0,
-    ok = 0,
-    no = 0,
-    unsaid = 0;
-  region.tiles.forEach((t) => {
-    if (t.id === FREE_SPACE) return;
-    const v = forMe(t.id);
-    if (v === "want") want++;
-    else if (v === "ok") ok++;
-    else if (v === "no") no++;
-    else unsaid++;
-  });
-  return { want, ok, no, unsaid };
+interface Totals {
+  want: number;
+  ok: number;
+  no: number;
+  unsaid: number;
+}
+
+function summarize(regions: readonly Region[], forUid: (id: string) => string | undefined): Totals {
+  const t: Totals = { want: 0, ok: 0, no: 0, unsaid: 0 };
+  regions.forEach((r) =>
+    answerable(r).forEach((tile) => {
+      const v = forUid(tile.id);
+      if (v === "want") t.want++;
+      else if (v === "ok") t.ok++;
+      else if (v === "no") t.no++;
+      else t.unsaid++;
+    }),
+  );
+  return t;
+}
+
+function totalsFor(intents: EventState["intents"], uid: string): Totals {
+  return summarize(REGIONS, (id) => intents[id]?.[uid]);
 }
 
 export function PlanView() {
-  const { state, me, region, selectRegion } = useApp();
-  const uid = me?.id ?? "";
-  const forMe = (id: string) => state.intents[id]?.[uid];
+  const { state, me, players, isLeader, planViewing, planUid, setPlanViewUid, region, selectRegion } =
+    useApp();
+  const forUid = (id: string) => state.intents[id]?.[planUid];
 
-  const totals = myTotals(forMe);
+  const totals = summarize(REGIONS, forUid);
   const current = REGIONS.find((r) => r.id === region) ?? REGIONS[0];
+  const who = planViewing ? planViewing.name : "You";
+
+  // Yourself first, then every other seat with a Discord account linked. Whoever
+  // is currently being viewed stays listed even if their seat gets unlinked.
+  const pickable: PlayerRow[] = [
+    ...(me ? [me] : []),
+    ...players.filter(
+      (p) => p.id !== me?.id && (p.linked || p.id === planViewing?.id),
+    ),
+  ];
 
   return (
     <div>
@@ -68,18 +76,57 @@ export function PlanView() {
             <span className="h-[8px] w-[14px] bg-red-border" />
             Won&apos;t
           </span>
-          <span className="text-ink-dim">
-            You: {totals.want} want · {totals.ok} willing · {totals.no} won&apos;t · {totals.unsaid}{" "}
-            not answered
+          <span className={cn(planViewing ? "text-amber-soft" : "text-ink-dim")}>
+            {who}: {totals.want} want · {totals.ok} willing · {totals.no} won&apos;t ·{" "}
+            {totals.unsaid} not answered
           </span>
         </div>
+
+        {isLeader && (
+          <div className="mt-[10px] flex flex-wrap items-center gap-[8px] border-t border-border-dim pt-[10px]">
+            <label htmlFor="plan-view-as" className="font-mono text-[11px] text-ink-dim">
+              SHOW ANSWERS FOR
+            </label>
+            <select
+              id="plan-view-as"
+              value={planUid}
+              onChange={(e) => setPlanViewUid(e.target.value)}
+              className="min-h-[40px] max-w-full cursor-pointer border-2 border-border-default bg-surface-dark p-[8px_10px] text-[14px] text-ink"
+            >
+              {pickable.map((p) => {
+                const t = totalsFor(state.intents, p.id);
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.id === me?.id ? " (you)" : ""} —{" "}
+                    {t.unsaid ? `${t.unsaid} not answered` : "all answered"}
+                  </option>
+                );
+              })}
+            </select>
+            {planViewing && (
+              <>
+                <span className="text-[13px] text-amber-body">
+                  Read-only — these are {planViewing.name}&apos;s picks, not yours.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPlanViewUid(null)}
+                  className="min-h-[36px] cursor-pointer border-2 border-border-default bg-surface-btn p-[6px_12px] font-mono text-[11px] text-ink"
+                >
+                  BACK TO MINE
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Phone */}
       <div className="board:hidden">
         <div className="scroll-x mb-[10px] flex gap-[6px] overflow-x-auto pb-2">
           {REGIONS.map((r) => {
-            const s = regionSummary(r, forMe);
+            const s = summarize([r], forUid);
             const sel = r.id === region;
             return (
               <button
@@ -99,14 +146,14 @@ export function PlanView() {
             );
           })}
         </div>
-        {current && <PlanRegionPanel region={current} variant="phone" forMe={forMe} />}
+        {current && <PlanRegionPanel region={current} variant="phone" forUid={forUid} />}
       </div>
 
       {/* Desktop */}
       <div className="hidden board:block">
         <div className="grid grid-cols-3 gap-[10px]">
           {REGIONS.map((r) => (
-            <PlanRegionPanel key={r.id} region={r} variant="desktop" forMe={forMe} />
+            <PlanRegionPanel key={r.id} region={r} variant="desktop" forUid={forUid} />
           ))}
         </div>
       </div>
@@ -117,13 +164,13 @@ export function PlanView() {
 function PlanRegionPanel({
   region,
   variant,
-  forMe,
+  forUid,
 }: {
   region: Region;
   variant: "phone" | "desktop";
-  forMe: (id: string) => string | undefined;
+  forUid: (id: string) => string | undefined;
 }) {
-  const s = regionSummary(region, forMe);
+  const s = summarize([region], forUid);
   const phone = variant === "phone";
   return (
     <div

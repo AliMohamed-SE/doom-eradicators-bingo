@@ -8,12 +8,15 @@ import { setIntent } from "@/app/actions";
 import { cn } from "@/lib/cn";
 
 export function PlanPickSheet({ id }: { id: string }) {
-  const { state, me, playerName, closeDrawer, openTile, run } = useApp();
+  const { state, me, planViewing, planUid, playerName, closeDrawer, openTile, run } = useApp();
   const target = findTarget(id);
   if (!target || target.kind !== "tile") return null;
 
   const uid = me?.id ?? "";
-  const mine = (state.intents[id]?.[uid] ?? "") as Intent | "";
+  // While a leader is inspecting someone else's board this sheet reports their
+  // answer and cannot be edited — picking here would silently record your own.
+  const readOnly = !!planViewing;
+  const mine = (state.intents[id]?.[planUid] ?? "") as Intent | "";
   const c = intentCounts(state.intents, id);
 
   const nameLine = (v: Intent, word: string) => {
@@ -22,6 +25,7 @@ export function PlanPickSheet({ id }: { id: string }) {
   };
 
   const pick = (v: Intent) => {
+    if (readOnly) return;
     const next = mine === v ? null : v;
     run(() => setIntent(id, next), uid ? patchIntent(uid, id, next) : undefined);
   };
@@ -46,8 +50,11 @@ export function PlanPickSheet({ id }: { id: string }) {
             key={v}
             type="button"
             onClick={() => pick(v)}
+            disabled={readOnly}
+            aria-pressed={mine === v}
             className={cn(
-              "min-h-[66px] cursor-pointer border-2 p-[12px_6px] font-mono text-[12px]",
+              "min-h-[66px] border-2 p-[12px_6px] font-mono text-[12px]",
+              readOnly ? "cursor-default" : "cursor-pointer",
               mine === v ? INTENT_BTN[v].on : INTENT_BTN[v].off,
             )}
           >
@@ -68,8 +75,20 @@ export function PlanPickSheet({ id }: { id: string }) {
                 : "text-ink-dim",
         )}
       >
-        {mine ? "You said: " + PLAN_TONE[mine].badge : "You haven't answered this one"}
+        {planViewing
+          ? mine
+            ? `${planViewing.name} said: ${PLAN_TONE[mine].badge}`
+            : `${planViewing.name} hasn't answered this one`
+          : mine
+            ? "You said: " + PLAN_TONE[mine].badge
+            : "You haven't answered this one"}
       </div>
+      {planViewing && (
+        <div className="text-[13px] text-amber-body">
+          You&apos;re viewing {planViewing.name}&apos;s planning board — switch back to your own on
+          the planning tab to change your answers.
+        </div>
+      )}
 
       <div className="grid gap-[5px] border-2 border-border-default bg-surface-inset p-[10px]">
         <div className="font-mono text-[11px] text-ink-dim">THE TEAM</div>

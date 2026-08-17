@@ -7,9 +7,8 @@ import { FREE_SPACE, type Tile as TileData } from "@/lib/board-data";
 import { cn } from "@/lib/cn";
 
 export function PlanTile({ tile, variant }: { tile: TileData; variant: "phone" | "desktop" }) {
-  const { state, me, openPlanPick } = useApp();
+  const { state, planUid, openPlanPick } = useApp();
   const phone = variant === "phone";
-  const uid = me?.id ?? "";
 
   if (tile.id === FREE_SPACE) {
     return (
@@ -26,7 +25,7 @@ export function PlanTile({ tile, variant }: { tile: TileData; variant: "phone" |
     );
   }
 
-  const mine = (state.intents[tile.id]?.[uid] ?? "none") as Intent | "none";
+  const mine = (state.intents[tile.id]?.[planUid] ?? "none") as Intent | "none";
   const tone = PLAN_TONE[mine];
   const c = intentCounts(state.intents, tile.id);
   const bar = intentBar(state.intents, tile.id);

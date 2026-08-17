@@ -35,6 +35,14 @@ interface AppContextValue {
   region: string;
   selectRegion: (id: string) => void;
 
+  // planning: whose answers the planning board shows. Leaders can point this at
+  // any linked seat to inspect that player's picks; everyone else sees their own.
+  /** the player being inspected, or null when the board shows your own answers */
+  planViewing: PlayerRow | null;
+  /** resolved player id the planning board reads intents for */
+  planUid: string;
+  setPlanViewUid: (id: string | null) => void;
+
   // drawers
   drawer: Drawer;
   openTile: (id: string) => void;
@@ -64,6 +72,7 @@ export function AppProvider({
   const router = useRouter();
   const [snapshot, setSnapshot] = useState(initial);
   const [region, setRegion] = useState("central");
+  const [planViewUid, setPlanViewUid] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [pending, startTransition] = useTransition();
 
@@ -86,6 +95,13 @@ export function AppProvider({
     [byId],
   );
   const playerById = useCallback((id: string) => byId.get(id), [byId]);
+
+  // Only leaders may inspect someone else, and never "inspect" your own seat.
+  const planViewing =
+    snapshot.isLeader && planViewUid && planViewUid !== snapshot.me?.id
+      ? (byId.get(planViewUid) ?? null)
+      : null;
+  const planUid = planViewing?.id ?? snapshot.me?.id ?? "";
 
   const run = useCallback(
     (fn: () => Promise<unknown>, optimistic?: (s: AppSnapshot) => AppSnapshot) => {
@@ -110,6 +126,9 @@ export function AppProvider({
     playerById,
     region,
     selectRegion: setRegion,
+    planViewing,
+    planUid,
+    setPlanViewUid,
     drawer,
     openTile: (id) => setDrawer({ kind: "tile", id }),
     openRegion: (id) => setDrawer({ kind: "region", id }),
