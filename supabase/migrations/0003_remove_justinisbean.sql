@@ -1,0 +1,11 @@
+-- JustinIsBean left the team. Remove the player row entirely.
+--
+-- The foreign keys do the rest: tile_claims, tile_progress and tile_intents
+-- cascade (his planning intents, claims and progress vanish), and
+-- tile_completions.completed_by is set to null so a tile he completed stays
+-- completed but loses the attribution.
+--
+-- His Discord link was already cleared by hand; deleting the row also frees the
+-- auth_user_id unique slot either way. He is off ROSTER in lib/board-data.ts,
+-- so the seat cannot be picked again on the onboarding screen.
+delete from public.players where name = 'JustinIsBean';
