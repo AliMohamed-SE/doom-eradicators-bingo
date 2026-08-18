@@ -407,10 +407,10 @@ export const BRIDGES: Bridge[] = [
   { id: "bridge_deep_south_unknown", name: "???", o: "???", between: ["south", "south_east"], mystery: 1 }
 ];
 
-export const ROSTER: string[] = ["JustAWeasel", "BZBT", "Shear Stress", "JadsNads", "Nyaagrill", "Silken7", "ThreeMoon", "SmellyCrust", "Jimbo Bean", "Aravick", "Joshrules151", "Coltpire", "Solostein", "Trekly", "Njdesmarais"];
+export const ROSTER: string[] = ["JustAWeasel", "BZBT", "Shear Stress", "JadsNads", "Nyaagrill", "Silken7", "ThreeMoon", "SmellyCrust", "Jimbo Bean", "Aravick", "Joshrules151", "Coltpire", "Solostein", "Trekly", "Njdesmarais", "Plugged In"];
 
 // Predefined leaders. Picking any of these characters grants leader controls, no
-// code needed. "Wetfrog1998" is the organiser and is not one of the 15 roster
+// code needed. "Wetfrog1998" is the organiser and is not one of the 16 roster
 // players, so it is offered in the picker in addition to the roster. Anyone can
 // also be promoted by setting players.is_leader = true in the database.
 export const LEADER_NAMES: string[] = ["Wetfrog1998", "JustAWeasel"];
