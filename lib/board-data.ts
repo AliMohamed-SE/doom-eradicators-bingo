@@ -392,7 +392,8 @@ export const BRIDGES: Bridge[] = [
     i: { need: 1, c: "w", d: [{ n: "Crazy Archaeologist", r: 128, k: 40 }], note: "Cheapest bridge on the board. Someone should just do this." } },
   // Same as the Misthlain/Open Waters border: "Rune Reaper" is central's
   // middle-right TILE, the prereq facing this border, not a bridge of its own.
-  { id: "bridge_central_east_unknown", name: "???", o: "???", between: ["central", "east"], mystery: 1 },
+  // The bridge itself is "Rangers when?".
+  { id: "bridge_rangers_when", name: "Rangers when?", o: "Open any tier of clue worth 700k", between: ["central", "east"], s: "Clue scrolls (any tier)", r: "No fixed rate — it is the chance a single reward casket rolls 700k+ in one open, which swings with GE prices. Higher tiers spike far more often.", w: "https://oldschool.runescape.wiki/w/Reward_casket" },
 
   // ---- top-bottom neighbours, middle row into bottom row ----
   { id: "bridge_south_west_unknown", name: "???", o: "???", between: ["west", "south_west"], mystery: 1 },

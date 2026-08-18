@@ -311,7 +311,7 @@ describe("fastestWayIn", () => {
   });
 
   it("sorts a mystery bridge behind anything with an objective", () => {
-    // east borders Maggot Monarch plus two mystery bridges.
+    // east borders Maggot Monarch and Rangers when? plus one mystery bridge.
     expect(fastestWayIn("east", new Set())?.mystery).toBeUndefined();
     // south_east has nothing but mystery bridges, so it still returns one.
     expect(fastestWayIn("south_east", new Set())?.mystery).toBe(1);
@@ -337,7 +337,7 @@ describe("opening a region over any border", () => {
   it("opens Misthlain's neighbours over any one of its four borders", () => {
     const byBorder: Record<string, string> = {
       north: "bridge_traditional_start",
-      east: "bridge_central_east_unknown",
+      east: "bridge_rangers_when",
       south: "bridge_cheese_and_fire",
       west: "bridge_m_lady",
     };
