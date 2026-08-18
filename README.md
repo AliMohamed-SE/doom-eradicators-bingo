@@ -1,7 +1,9 @@
 # Doom Eradicators — Celeris August Bingo tracker
 
-A shared, mobile-first OSRS clan bingo tracker. Nine 3×3 regions (81 tiles) plus nine bridge tiles
-that gate region unlocks. Players claim tiles, log progress, answer a pre-event planning question
+A shared, mobile-first OSRS clan bingo tracker. Nine 3×3 regions (81 tiles) laid out as a 3×3 map,
+plus a bridge tile on each of the 12 borders between neighbouring regions. Bridges gate region
+unlocks and work both ways: you cross from whichever of a bridge's two regions is already open, and
+clearing it opens the other. Players claim tiles, log progress, answer a pre-event planning question
 per tile, and read tile-specific rules. One leader has extra controls.
 
 Built with **Next.js (App Router, TypeScript)**, **Supabase** (Postgres + Realtime), and
@@ -51,8 +53,12 @@ Rules held to:
   bundle from `lib/board-data.ts`. Only event state lives in the database. Tile ids in that file are
   the primary keys used everywhere.
 - **All game logic lives in `lib/scoring.ts`** as pure functions over `(boardData, eventState)`:
-  region unlock, tile state, goal parsing, progress totals, points, tile rules, and OSRS estimates.
-  Components never re-derive scoring inline. Run the tests with `npm test`.
+  board geometry, region unlock, tile state, goal parsing, progress totals, points, tile rules, and
+  OSRS estimates. Components never re-derive scoring inline. Run the tests with `npm test`.
+- **Bridges are edges, not properties of a region.** Each one stores only `between: [regionA,
+  regionB]`; which way it is crossed, which region it opens, its prereq tile (the tile facing it on
+  the side you cross from) and where it is drawn on the map are all derived from the 3×3 grid.
+  Region unlock is graph reachability from `central`, so a region can be opened from any side.
 - **Server components fetch, client components interact.** The `(app)` layout loads state on the
   server once per request (`React.cache`), hands a serializable snapshot to a client provider, and
   the interactive sheets/buttons call server actions.

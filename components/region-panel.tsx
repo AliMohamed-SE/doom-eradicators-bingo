@@ -7,12 +7,16 @@ import {
   regionStats,
   regionEstimate,
   regionUnlocked,
-  bridgeForRegion,
+  bridgesForRegion,
+  bridgeSideFrom,
   fmtHrs,
   allTiles,
 } from "@/lib/scoring";
-import type { Region } from "@/lib/board-data";
+import type { Region, Bridge } from "@/lib/board-data";
 import { cn } from "@/lib/cn";
+
+/** North, east, south, west — the order the borders are listed in. */
+const SIDE_ORDER = { north: 0, east: 1, south: 2, west: 3 } as const;
 
 export function RegionPanel({ region, variant }: { region: Region; variant: "phone" | "desktop" }) {
   const { state, openRegion } = useApp();
@@ -22,7 +26,15 @@ export function RegionPanel({ region, variant }: { region: Region; variant: "pho
   const st = regionStats(region, state.done);
   const est = regionEstimate(region, state.done);
   const focused = state.focusRegions.includes(region.id);
-  const bridge = bridgeForRegion(region.id);
+  // Phone has no board map, so the region carries its own border list; on desktop
+  // the bridges are drawn in the gutters around this panel instead.
+  const sideRank = (b: Bridge) => SIDE_ORDER[bridgeSideFrom(b, region.id) ?? "west"];
+  const bridges = phone
+    ? bridgesForRegion(region.id)
+        .slice()
+        .sort((x, y) => sideRank(x) - sideRank(y))
+    : [];
+
 
   const targets = allTiles([region]);
 
@@ -45,7 +57,7 @@ export function RegionPanel({ region, variant }: { region: Region; variant: "pho
     <div
       className={cn(
         "region-gradient",
-        phone ? "border-2 border-border-default p-[10px]" : cn("border-2 p-[9px]", panelBorder),
+        phone ? "border-2 border-border-default p-[10px]" : cn("h-full border-2 p-[9px]", panelBorder),
       )}
       style={!phone && !unlocked ? { opacity: 0.72 } : undefined}
     >
@@ -82,7 +94,16 @@ export function RegionPanel({ region, variant }: { region: Region; variant: "pho
         </div>
       )}
 
-      {bridge && <BridgeButton bridge={bridge} variant={variant} />}
+      {bridges.length > 0 && (
+        <div className="mb-[9px] grid gap-[6px]">
+          <div className="font-mono text-[11px] text-ink-dim">
+            BORDERS · {bridges.length} BRIDGE{bridges.length === 1 ? "" : "S"}
+          </div>
+          {bridges.map((b) => (
+            <BridgeButton key={b.id} bridge={b} variant={variant} fromRegion={region.id} />
+          ))}
+        </div>
+      )}
 
       <div className={cn("grid grid-cols-3", phone ? "gap-[6px]" : "gap-[4px]")}>
         {targets.map((t) => (

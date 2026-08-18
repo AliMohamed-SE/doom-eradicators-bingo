@@ -3,14 +3,15 @@
 import { useApp } from "./app-provider";
 import { RegionPanel } from "./region-panel";
 import { BoardIntel } from "./board-intel";
-import {
-  REGIONS,
-} from "@/lib/board-data";
+import { BridgeConnector } from "./bridge-connector";
+import { BridgeLegend } from "./bridge-legend";
+import { REGIONS, BRIDGES } from "@/lib/board-data";
 import {
   scoreOf,
   regionUnlocked,
   regionFullyDone,
   findTarget,
+  regionPlacement,
 } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
 
@@ -83,13 +84,27 @@ export function BoardView() {
         {current && <RegionPanel region={current} variant="phone" />}
       </div>
 
-      {/* Desktop: nine-region grid */}
+      {/* Desktop: nine-region map. Regions sit on the odd grid tracks, bridges in
+          the gutters between them, so every bridge is drawn on the border it
+          actually opens. */}
       <div className="hidden board:block">
-        <div className="grid grid-cols-3 gap-[10px]">
+        <div
+          className="grid gap-[6px]"
+          style={{
+            gridTemplateColumns: "1fr 34px 1fr 34px 1fr",
+            gridTemplateRows: "auto 34px auto 34px auto",
+          }}
+        >
           {REGIONS.map((r) => (
-            <RegionPanel key={r.id} region={r} variant="desktop" />
+            <div key={r.id} style={regionPlacement(r.id) ?? undefined}>
+              <RegionPanel region={r} variant="desktop" />
+            </div>
+          ))}
+          {BRIDGES.map((b) => (
+            <BridgeConnector key={b.id} bridge={b} />
           ))}
         </div>
+        <BridgeLegend />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-[14px] border-2 border-border-default bg-surface-inset p-[10px_12px]">

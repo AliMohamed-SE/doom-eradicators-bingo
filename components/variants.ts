@@ -1,4 +1,4 @@
-import type { TileState, Intent } from "@/lib/scoring";
+import type { TileState, Intent, BridgeStatus } from "@/lib/scoring";
 
 /**
  * Tile-state treatments as a plain variant map of class strings. This is the
@@ -27,14 +27,24 @@ export const SKIN: Record<TileState, { className: string; badge: string; badgeTe
   },
 };
 
-/** Bridge button tone by state. */
-export const BRIDGE_TONE: Record<"done" | "locked" | "open", { className: string; head: string }> = {
+/** Bridge tone by status. `redundant` is a bridge whose two regions are both
+ * already open — still clearable, but it opens nothing, so it reads as muted
+ * rather than as an invitation. */
+export const BRIDGE_TONE: Record<
+  BridgeStatus,
+  { className: string; head: string }
+> = {
   done: { className: "border-green-border bg-green-bg text-green-text", head: "text-green-soft" },
   locked: {
     className: "border-tile-locked-border bg-tile-locked-bg text-tile-locked-text",
     head: "text-tile-locked-text",
   },
-  open: { className: "border-orange bg-amber-btn text-amber-soft", head: "text-amber-text" },
+  available: { className: "border-orange bg-amber-btn text-amber-soft", head: "text-amber-text" },
+  working: { className: "border-blue-border bg-blue-bg text-blue-text", head: "text-blue-text" },
+  redundant: {
+    className: "border-border-dim bg-surface-inset text-ink-faint",
+    head: "text-ink-faint",
+  },
 };
 
 /** Planning tile tone by the current player's own intent (or none). */

@@ -9,12 +9,17 @@ import {
   regionStats,
   regionEstimate,
   regionUnlocked,
-  bridgeForRegion,
+  bridgesForRegion,
+  bridgeSideFrom,
+  bridgeOther,
+  bridgeApproach,
   tileState,
   fmtHrs,
   allTiles,
 } from "@/lib/scoring";
 import { toggleFocus, forceRegionCompletion } from "@/app/actions";
+import { bridgeLabel, bridgeObjective, bridgeHeading, SIDE_LABEL, SIDE_ARROW, regionName } from "@/lib/bridge-text";
+import { BRIDGE_TONE } from "./variants";
 import { cn } from "@/lib/cn";
 
 export function RegionSheet({ id }: { id: string }) {
@@ -27,22 +32,37 @@ export function RegionSheet({ id }: { id: string }) {
   const stat = regionStats(region, state.done);
   const est = regionEstimate(region, state.done);
   const unlocked = regionUnlocked(region.id, state.done);
-  const bridge = bridgeForRegion(region.id);
   const focused = state.focusRegions.includes(region.id);
 
-  const brName = bridge
-    ? bridge.mystery && (!bridge.name || bridge.name === "???")
-      ? "the mystery bridge"
-      : bridge.name
-    : null;
+  // Every bridge on this region's borders, north-first. They are two-way, so this
+  // is both the list of ways in and the list of ways out of here.
+  const SIDE_ORDER = { north: 0, east: 1, south: 2, west: 3 } as const;
+  const borders = bridgesForRegion(region.id)
+    .map((b) => ({
+      bridge: b,
+      side: bridgeSideFrom(b, region.id) ?? "west",
+      neighbour: bridgeOther(b, region.id),
+      approach: bridgeApproach(b, state),
+    }))
+    .sort((x, y) => SIDE_ORDER[x.side] - SIDE_ORDER[y.side]);
+
+  // A region opens over any one of its borders, so the note points at the list
+  // below rather than singling out a side.
+  const workable = borders.filter(
+    (b) => b.approach.status === "available" || b.approach.status === "working",
+  );
   const unlockNote =
     region.id === "central"
       ? "Open from the start"
       : unlocked
-        ? "Bridge cleared"
-        : brName
-          ? "Clear " + brName + " to open it"
-          : "No bridge set yet";
+        ? "Reached over a cleared bridge"
+        : borders.length === 0
+          ? "Nothing borders this region"
+          : workable.length === 1
+            ? "One bridge on its borders is open — clear it to get in"
+            : workable.length
+              ? `Clear any one of the ${workable.length} bridges open on its borders`
+              : "Locked on every border — clear the tile facing one of its bridges first";
 
   const restLine = est.rated
     ? "≈ " +
@@ -63,7 +83,7 @@ export function RegionSheet({ id }: { id: string }) {
         " challenge or unrated."
       : "Region complete — all nine tiles cleared.";
   const bridgeLine = est.bridgeHours
-    ? "Includes ≈ " + fmtHrs(est.bridgeHours) + " for the bridge that unlocks the region."
+    ? "Includes ≈ " + fmtHrs(est.bridgeHours) + " for the quickest bridge in."
     : "";
 
   const tiles = allTiles([region]);
@@ -139,16 +159,40 @@ export function RegionSheet({ id }: { id: string }) {
         <div className="text-[14px] leading-[1.35] text-ink-dim2">{peopleLine}</div>
       </div>
 
-      {bridge && (
-        <button
-          type="button"
-          onClick={() => openTile(bridge.id)}
-          className="min-h-[52px] w-full cursor-pointer border-2 border-border-default bg-surface-btn p-[11px] text-left text-[15px] text-ink"
-        >
-          <span className="font-mono text-[11px] text-ink-dim">WAY IN</span>
-          <br />
-          {brName}
-        </button>
+      {borders.length > 0 && (
+        <div className="grid gap-[6px] border-2 border-border-default bg-surface-inset p-[10px]">
+          <div className="font-mono text-[11px] text-ink-dim">
+            BORDERS · {borders.length} BRIDGE{borders.length === 1 ? "" : "S"}
+          </div>
+          <div className="text-[13px] leading-[1.35] text-ink-dim">
+            Bridges are two-way — each one joins this region to its neighbour and can be crossed
+            from whichever side is already open.
+          </div>
+          {borders.map(({ bridge: b, side, neighbour, approach }) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => openTile(b.id)}
+              className={cn(
+                "min-h-[52px] w-full cursor-pointer border-2 p-[10px] text-left",
+                BRIDGE_TONE[approach.status].className,
+              )}
+            >
+              <span
+                className={cn("block font-mono text-[10px]", BRIDGE_TONE[approach.status].head)}
+              >
+                {SIDE_LABEL[side]} {SIDE_ARROW[side]} {regionName(neighbour).toUpperCase()}
+              </span>
+              <span className="mt-[3px] block text-[15px]">{bridgeLabel(b)}</span>
+              <span className="mt-[2px] block text-[13px] leading-[1.3] text-ink-dim2">
+                {bridgeObjective(b)}
+              </span>
+              <span className="mt-[3px] block font-mono text-[10px] text-ink-dim">
+                {bridgeHeading(b, approach)}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
 
       <button

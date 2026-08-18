@@ -78,8 +78,14 @@ export interface Bridge {
   id: string;
   name: string;
   o: string;
-  prereq: string | null;
-  dest: string | null;
+  /**
+   * The two regions this bridge joins, in board order — [top, bottom] for
+   * stacked regions, [left, right] for side-by-side ones.
+   * Bridges are two-way: clearing one opens whichever side is still locked.
+   * The prereq tile is not stored — it is the tile facing the bridge on the
+   * side you are crossing from, derived in scoring.ts (bridgePrereq).
+   */
+  between: readonly [string, string];
   s?: string;
   r?: string;
   w?: string;
@@ -352,25 +358,52 @@ export const REGIONS: Region[] = [
   ]}
 ];
 
+// Bridges sit ON the border between two adjacent regions, so the board is a 3x3
+// graph: every region has up to four of them (north / east / south / west), and
+// an edge region simply has none on the sides where there is no neighbour.
+//
+// They are TWO-WAY. A bridge is crossable from whichever of its two regions is
+// already unlocked, and clearing it opens the other one. If both sides end up
+// unlocked through other routes the bridge is redundant — it leads nowhere new.
+//
+// `between` is in board order: [top, bottom] for stacked regions, [left, right]
+// for side-by-side ones. The prereq is NOT stored: it is the tile facing the
+// bridge in the region you cross from — bottom-middle / top-middle for stacked
+// regions, middle-right / middle-left for side-by-side ones — derived by
+// bridgePrereq() in scoring.ts.
 export const BRIDGES: Bridge[] = [
-  { id: "bridge_obsidian_breaker", name: "Obsidian Breaker", o: "Get 1x Obsidian Armor Piece from TzHaar", prereq: "temp_tome_time", dest: "north_west", s: "TzHaar-Ket", r: "Obsidian helmet / platebody / platelegs each 1/2,000", w: "https://oldschool.runescape.wiki/w/TzHaar-Ket",
+  // ---- left-right neighbours, top row ----
+  { id: "bridge_lil_champion", name: "Lil Champion", o: "Get 1x Champion Scroll", between: ["north_west", "north"], s: "Champions' Challenge", r: "Rate not on record yet — pending leader input.", w: "https://oldschool.runescape.wiki/w/Champion%27s_scroll" },
+  { id: "bridge_big_champion", name: "Big Champion", o: "Find a non-teammate cheesecapper and submit to #champions-guild", between: ["north", "north_east"], s: "Champions' Guild", r: "N/A — challenge" },
+
+  // ---- top-bottom neighbours, top row into middle row ----
+  { id: "bridge_obsidian_breaker", name: "Obsidian Breaker", o: "Get 1x Obsidian Armor Piece from TzHaar", between: ["north_west", "west"], s: "TzHaar-Ket", r: "Obsidian helmet / platebody / platelegs each 1/2,000", w: "https://oldschool.runescape.wiki/w/TzHaar-Ket",
     i: { need: 1, c: "w", d: [{ n: "TzHaar-Ket (any of the three pieces)", r: 667, k: 50 }], note: "Helmet, platebody and platelegs are 1/2,000 each — any one clears the bridge, so ≈ 1/667 a kill." } },
-  { id: "bridge_traditional_start", name: "Traditional Start", o: "Get 1x Zulrah Unique", prereq: "the_nex_tile", dest: "north", s: "Zulrah", r: "Depends on the specific unique table — not reduced to one rate.", w: "https://oldschool.runescape.wiki/w/Zulrah",
+  { id: "bridge_traditional_start", name: "Traditional Start", o: "Get 1x Zulrah Unique", between: ["north", "central"], s: "Zulrah", r: "Depends on the specific unique table — not reduced to one rate.", w: "https://oldschool.runescape.wiki/w/Zulrah",
     i: { need: 1, c: "e", d: [{ n: "Zulrah (any unique)", r: 330, k: 25 }], note: "Tanzanite fang, magic fang and serpentine visage are 1/1,024 each, plus the jar and mutagens — combined ≈ 1/330 a kill." } },
-  { id: "bridge_maggot_monarch", name: "Maggot Monarch", o: "Get 1x Crimson Kisten / Elder Venator Fang", prereq: "evil_ass_task", dest: "north_east", s: "Maggot King (Vampyrium)", r: "Elder venator fang 1/340, Crimson kisten 1/520 — any unique 1/205.6 per open-stomach kill.", w: "https://oldschool.runescape.wiki/w/Maggot_King",
+  { id: "bridge_maggot_monarch", name: "Maggot Monarch", o: "Get 1x Crimson Kisten / Elder Venator Fang", between: ["north_east", "east"], s: "Maggot King (Vampyrium)", r: "Elder venator fang 1/340, Crimson kisten 1/520 — any unique 1/205.6 per open-stomach kill.", w: "https://oldschool.runescape.wiki/w/Maggot_King",
     i: { need: 1, c: "w", d: [
       { n: "Maggot King — melee/magic setup", r: 205.6, k: 22 },
       { n: "Maggot King — ranged setup", r: 205.6, k: 18 }
     ], note: "Elder venator fang 1/340 and crimson kisten 1/520 — either clears the bridge, so ≈ 1/206 a kill. Loot with \"open-stomach\"; \"take-eggs\" rolls neither." } },
-  { id: "bridge_m_lady", name: "M'Lady", o: "Get 1x Fedora", prereq: "whispered", dest: "west", s: "Crazy Archaeologist", r: "1/128", w: "https://oldschool.runescape.wiki/w/Crazy_archaeologist",
+
+  // ---- left-right neighbours, middle row ----
+  { id: "bridge_m_lady", name: "M'Lady", o: "Get 1x Fedora", between: ["west", "central"], s: "Crazy Archaeologist", r: "1/128", w: "https://oldschool.runescape.wiki/w/Crazy_archaeologist",
     i: { need: 1, c: "w", d: [{ n: "Crazy Archaeologist", r: 128, k: 40 }], note: "Cheapest bridge on the board. Someone should just do this." } },
-  { id: "bridge_rune_reaper", name: "Rune Reaper", o: "Get Dragon Limbs", prereq: "clifford_s_revenge", dest: "east", s: "Rune Dragon", r: "1/800", w: "https://oldschool.runescape.wiki/w/Rune_dragon",
-    i: { need: 1, c: "w", d: [{ n: "Rune dragons (Lithkren / Myths' Guild)", r: 800, k: 40 }] } },
-  { id: "bridge_abyssal_cryer", name: "Abyssal Cryer", o: "Get 3x Bludgeon Pieces", prereq: "cold_and_spicy", dest: "south", s: "Abyssal Sire", r: "Any bludgeon piece is 1/206 per kill.", w: "https://oldschool.runescape.wiki/w/Unsired",
-    i: { need: 3, c: "w", d: [{ n: "Abyssal Sire (any bludgeon piece)", r: 206, k: 25 }], note: "Unsired 1/100, bludgeon pieces 62/128 of its table, and duplicates re-roll once redeemed — about 620 kills for all three." } },
-  { id: "bridge_south_west_unknown", name: "???", o: "???", prereq: null, dest: "south_west", mystery: 1 },
-  { id: "bridge_south_unknown", name: "???", o: "???", prereq: null, dest: null, mystery: 1 },
-  { id: "bridge_south_east_unknown", name: "???", o: "???", prereq: null, dest: "south_east", mystery: 1 }
+  // Same as the Misthlain/Open Waters border: "Rune Reaper" is central's
+  // middle-right TILE, the prereq facing this border, not a bridge of its own.
+  { id: "bridge_central_east_unknown", name: "???", o: "???", between: ["central", "east"], mystery: 1 },
+
+  // ---- top-bottom neighbours, middle row into bottom row ----
+  { id: "bridge_south_west_unknown", name: "???", o: "???", between: ["west", "south_west"], mystery: 1 },
+  // Not a bridge of its own: "Abyssal Cryer" is central's bottom-middle TILE, which
+  // is the prereq facing this border. The bridge itself is still to be announced.
+  { id: "bridge_central_south_unknown", name: "???", o: "???", between: ["central", "south"], mystery: 1 },
+  { id: "bridge_south_east_unknown", name: "???", o: "???", between: ["east", "south_east"], mystery: 1 },
+
+  // ---- left-right neighbours, bottom row ----
+  { id: "bridge_south_unknown", name: "???", o: "???", between: ["south_west", "south"], mystery: 1 },
+  { id: "bridge_deep_south_unknown", name: "???", o: "???", between: ["south", "south_east"], mystery: 1 }
 ];
 
 export const ROSTER: string[] = ["JustAWeasel", "BZBT", "Shear Stress", "JadsNads", "Nyaagrill", "Silken7", "ThreeMoon", "SmellyCrust", "Jimbo Bean", "Aravick", "Joshrules151", "Coltpire", "JustinIsBean", "Solostein", "Trekly", "Njdesmarais"];
@@ -403,8 +436,11 @@ export const RULE_SECTIONS: RuleSection[] = [
     { text: "Blacking out any section awards 40 total points (this is just an additional 7 points, not 40 additional points)." }
   ]},
   { id: "bridges", title: "BRIDGES & UNLOCKING", items: [
+    { text: "Every border between two neighbouring regions has one bridge on it. A region has up to four (north, east, south and west); the ones on the outside of the board have fewer, because there is no region on that side." },
     { text: "You must complete the tile next to the bridge to unlock the bridge tile, which will in turn unlock the new region." },
-    { text: "You only need to complete the tile into the bridge, you don't need to complete each tile next to it." }
+    { text: "You only need to complete the tile into the bridge, you don't need to complete each tile next to it." },
+    { text: "Bridges go both ways. You cross from whichever of its two regions is already open, and clearing it opens the other one." },
+    { text: "If both of a bridge's regions end up open through other routes, that bridge is redundant — clearing it opens nothing new." }
   ]},
   { id: "pets", title: "PETS", items: [
     { text: "Pets will complete any tile with a few exceptions." },

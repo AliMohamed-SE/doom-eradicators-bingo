@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { REGIONS, FREE_SPACE } from "./board-data";
+import { REGIONS, BRIDGES, FREE_SPACE } from "./board-data";
 import {
   goalOf,
   progressTotal,
@@ -19,7 +19,16 @@ import {
   infoFor,
   regionEstimate,
   findTarget,
-  bridgeForRegion,
+  bridgesForRegion,
+  bridgeOther,
+  bridgeSideFrom,
+  bridgePrereq,
+  bridgeStatus,
+  unlockedRegions,
+  fastestWayIn,
+  regionCell,
+  bridgePlacement,
+  regionPlacement,
   type EventState,
   type Target,
 } from "./scoring";
@@ -123,13 +132,107 @@ describe("regionStats", () => {
   });
 });
 
+describe("bridge geometry", () => {
+  it("gives every region a bridge on each border it actually has", () => {
+    // Corners touch two neighbours, edges three, the centre four.
+    expect(bridgesForRegion("north_west").length).toBe(2);
+    expect(bridgesForRegion("north").length).toBe(3);
+    expect(bridgesForRegion("central").length).toBe(4);
+    expect(bridgesForRegion("south_east").length).toBe(2);
+    // 12 borders on a 3x3 grid, each with exactly one bridge.
+    expect(BRIDGES.length).toBe(12);
+    expect(new Set(BRIDGES.map((b) => b.id)).size).toBe(12);
+    expect(new Set(BRIDGES.map((b) => [...b.between].sort().join("|"))).size).toBe(12);
+  });
+
+  it("only ever joins adjacent regions", () => {
+    for (const b of BRIDGES) {
+      const a = regionCell(b.between[0])!;
+      const c = regionCell(b.between[1])!;
+      expect(Math.abs(a.row - c.row) + Math.abs(a.col - c.col)).toBe(1);
+    }
+  });
+
+  it("reads the same border from both ends", () => {
+    const b = BRIDGES.find((x) => x.id === "bridge_big_champion")!;
+    expect(bridgeOther(b, "north")).toBe("north_east");
+    expect(bridgeOther(b, "north_east")).toBe("north");
+    expect(bridgeSideFrom(b, "north")).toBe("east");
+    expect(bridgeSideFrom(b, "north_east")).toBe("west");
+    expect(bridgeOther(b, "central")).toBeNull();
+  });
+
+  it("derives the prereq as the tile facing the bridge on each side", () => {
+    const maggot = BRIDGES.find((x) => x.id === "bridge_maggot_monarch")!;
+    // north_east sits above east, so its bottom-middle tile faces the bridge.
+    expect(bridgePrereq(maggot, "north_east")).toBe("evil_ass_task");
+    expect(bridgePrereq(maggot, "east")).toBe(REGIONS.find((r) => r.id === "east")!.tiles[1].id);
+    const mlady = BRIDGES.find((x) => x.id === "bridge_m_lady")!;
+    // west sits left of central, so central's middle-left tile faces the bridge.
+    expect(bridgePrereq(mlady, "central")).toBe("whispered");
+    expect(bridgePrereq(mlady, "west")).toBe(REGIONS.find((r) => r.id === "west")!.tiles[5].id);
+  });
+});
+
+describe("board map placement", () => {
+  it("puts every bridge in the gutter between the two panels it joins", () => {
+    const seen = new Map<string, string>();
+    for (const b of BRIDGES) {
+      const place = bridgePlacement(b)!;
+      const ends = b.between.map((id) => regionPlacement(id)!);
+      // Odd tracks hold regions, even tracks are the gutters — a bridge must sit
+      // on exactly one even track, and between its two regions on the other axis.
+      const onGutterRow = place.gridRow % 2 === 0;
+      const onGutterCol = place.gridColumn % 2 === 0;
+      expect(onGutterRow !== onGutterCol).toBe(true);
+      expect(place.upright).toBe(onGutterCol);
+      if (place.upright) {
+        expect(place.gridRow).toBe(ends[0].gridRow);
+        expect(place.gridRow).toBe(ends[1].gridRow);
+        expect(place.gridColumn).toBe((ends[0].gridColumn + ends[1].gridColumn) / 2);
+      } else {
+        expect(place.gridColumn).toBe(ends[0].gridColumn);
+        expect(place.gridColumn).toBe(ends[1].gridColumn);
+        expect(place.gridRow).toBe((ends[0].gridRow + ends[1].gridRow) / 2);
+      }
+      // and no two bridges may land in the same cell
+      const key = place.gridRow + "," + place.gridColumn;
+      expect(seen.get(key)).toBeUndefined();
+      seen.set(key, b.id);
+    }
+    expect(seen.size).toBe(12);
+  });
+
+  it("never lands a bridge on a region's own cell", () => {
+    const regionCells = new Set(REGIONS.map((r) => {
+      const p = regionPlacement(r.id)!;
+      return p.gridRow + "," + p.gridColumn;
+    }));
+    for (const b of BRIDGES) {
+      const place = bridgePlacement(b)!;
+      expect(regionCells.has(place.gridRow + "," + place.gridColumn)).toBe(false);
+    }
+  });
+});
+
 describe("regionUnlocked & tileState", () => {
-  it("central is always unlocked; others need their bridge done", () => {
+  it("central is always unlocked; others need a bridge into them", () => {
     const done = new Set<string>();
     expect(regionUnlocked("central", done)).toBe(true);
-    expect(regionUnlocked("north_west", done)).toBe(false);
-    const b = bridgeForRegion("north_west")!;
-    expect(regionUnlocked("north_west", new Set([b.id]))).toBe(true);
+    expect(regionUnlocked("west", done)).toBe(false);
+    expect(regionUnlocked("west", new Set(["bridge_m_lady"]))).toBe(true);
+  });
+
+  it("unlocks across chained bridges, not just the ones touching central", () => {
+    // central -> west (M'Lady) -> north_west (Obsidian Breaker), which touches
+    // central on no border at all.
+    const done = new Set(["bridge_m_lady", "bridge_obsidian_breaker"]);
+    expect([...unlockedRegions(done)].sort()).toEqual(["central", "north_west", "west"]);
+    expect(regionUnlocked("north_west", done)).toBe(true);
+  });
+
+  it("ignores a cleared bridge with neither end reachable", () => {
+    expect(regionUnlocked("south_east", new Set(["bridge_deep_south_unknown"]))).toBe(false);
   });
 
   it("tiles in a locked region are locked", () => {
@@ -148,14 +251,103 @@ describe("regionUnlocked & tileState", () => {
     expect(tileState(target(FREE_SPACE), emptyState())).toBe("done");
   });
 
-  it("a bridge is locked until its prereq is done, then available", () => {
-    const bridge = target("bridge_obsidian_breaker");
+  it("a bridge is locked until an end is reachable and its facing tile is done", () => {
+    const bridge = target("bridge_m_lady");
+    // central is open from the start, but its middle-left tile is not done.
     expect(tileState(bridge, emptyState())).toBe("locked");
-    expect(tileState(bridge, emptyState({ done: new Set(["temp_tome_time"]) }))).toBe("available");
+    expect(tileState(bridge, emptyState({ done: new Set(["whispered"]) }))).toBe("available");
   });
 
-  it("a mystery bridge with no prereq stays locked", () => {
-    expect(tileState(target("bridge_south_unknown"), emptyState())).toBe("locked");
+  it("gates a two-way bridge on the facing tile of whichever side is open", () => {
+    const b = BRIDGES.find((x) => x.id === "bridge_obsidian_breaker")!;
+    // Nothing reaches either end yet.
+    expect(bridgeStatus(b, { done: new Set<string>() })).toBe("locked");
+    // north_west sits above west, so from west the facing tile is its top-middle.
+    const westFacing = REGIONS.find((r) => r.id === "west")!.tiles[1].id;
+    const viaWest = new Set(["bridge_m_lady", westFacing]);
+    expect(bridgeStatus(b, { done: viaWest })).toBe("available");
+    // Coming from north_west instead, it is north_west's bottom-middle tile.
+    const viaNorth = new Set(["bridge_lil_champion", "bridge_traditional_start", "temp_tome_time"]);
+    expect(bridgeStatus(b, { done: viaNorth })).toBe("available");
+  });
+
+  it("calls a bridge redundant once both its regions are open anyway", () => {
+    // central -> north and central -> west open both ends of nothing yet, but
+    // reaching north_west from both sides makes the second crossing pointless.
+    const done = new Set([
+      "bridge_traditional_start",
+      "bridge_m_lady",
+      "bridge_obsidian_breaker",
+    ]);
+    expect(bridgeStatus(BRIDGES.find((x) => x.id === "bridge_lil_champion")!, { done })).toBe(
+      "redundant",
+    );
+  });
+
+  it("a mystery bridge stays locked even with its facing tile done", () => {
+    const b = BRIDGES.find((x) => x.id === "bridge_south_west_unknown")!;
+    const westFacing = REGIONS.find((r) => r.id === "west")!.tiles[7].id;
+    expect(bridgeStatus(b, { done: new Set(["bridge_m_lady", westFacing]) })).toBe("locked");
+  });
+});
+
+describe("fastestWayIn", () => {
+  it("is null once the region is open", () => {
+    expect(fastestWayIn("central", new Set())).toBeNull();
+    expect(fastestWayIn("west", new Set(["bridge_m_lady"]))).toBeNull();
+  });
+
+  it("picks the cheapest bridge on any of the region's borders", () => {
+    // Kebos & Kourend borders M'Lady (Crazy Arch, ~3h) and Obsidian Breaker
+    // (TzHaar, ~13h). Neither is crossable yet — cost decides, not reachability.
+    expect(fastestWayIn("west", new Set())?.id).toBe("bridge_m_lady");
+    // north_west borders Obsidian Breaker (rated) and Lil Champion (no rate).
+    expect(fastestWayIn("north_west", new Set())?.id).toBe("bridge_obsidian_breaker");
+  });
+
+  it("skips bridges that are already cleared", () => {
+    const done = new Set(["bridge_obsidian_breaker"]);
+    expect(fastestWayIn("north_west", done)?.id).toBe("bridge_lil_champion");
+  });
+
+  it("sorts a mystery bridge behind anything with an objective", () => {
+    // east borders Maggot Monarch plus two mystery bridges.
+    expect(fastestWayIn("east", new Set())?.mystery).toBeUndefined();
+    // south_east has nothing but mystery bridges, so it still returns one.
+    expect(fastestWayIn("south_east", new Set())?.mystery).toBe(1);
+  });
+
+  it("has no named way into south yet — every border there is a mystery", () => {
+    expect(bridgesForRegion("south").every((b) => b.mystery)).toBe(true);
+    expect(fastestWayIn("south", new Set())?.mystery).toBe(1);
+  });
+});
+
+describe("opening a region over any border", () => {
+  it("accepts whichever bridge is cleared, north, east, south or west", () => {
+    // Desert has two borders: Lil Champion (east, to Fremennik) and Obsidian
+    // Breaker (south, to Kourend). Either one on its own opens it.
+    for (const via of ["bridge_lil_champion", "bridge_obsidian_breaker"]) {
+      const feeder = via === "bridge_lil_champion" ? "bridge_traditional_start" : "bridge_m_lady";
+      expect(regionUnlocked("north_west", new Set([feeder, via]))).toBe(true);
+    }
+  });
+
+  it("opens Misthlain's neighbours over any one of its four borders", () => {
+    const byBorder: Record<string, string> = {
+      north: "bridge_traditional_start",
+      east: "bridge_central_east_unknown",
+      south: "bridge_central_south_unknown",
+      west: "bridge_m_lady",
+    };
+    for (const [side, id] of Object.entries(byBorder)) {
+      const b = BRIDGES.find((x) => x.id === id)!;
+      expect(bridgeSideFrom(b, "central")).toBe(side);
+      const opened = bridgeOther(b, "central")!;
+      expect(regionUnlocked(opened, new Set([id]))).toBe(true);
+      // and nothing else comes along for the ride
+      expect([...unlockedRegions(new Set([id]))].sort()).toEqual(["central", opened].sort());
+    }
   });
 });
 
@@ -272,7 +464,7 @@ describe("regionEstimate", () => {
 
   it("drops completed tiles from the tally", () => {
     const r = region("north_west");
-    const done = new Set(r.tiles.map((t) => t.id).concat([bridgeForRegion("north_west")!.id]));
+    const done = new Set(r.tiles.map((t) => t.id).concat(["bridge_m_lady", "bridge_obsidian_breaker"]));
     const est = regionEstimate(r, done);
     expect(est.left).toBe(0);
     expect(est.hours).toBe(0);

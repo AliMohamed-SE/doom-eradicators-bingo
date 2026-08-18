@@ -2,32 +2,49 @@
 
 import { useApp } from "./app-provider";
 import { BRIDGE_TONE } from "./variants";
-import { tileState, infoFor, fmtHrs } from "@/lib/scoring";
+import { bridgeApproach, bridgeSideFrom, bridgeOther, infoFor, fmtHrs } from "@/lib/scoring";
+import {
+  SIDE_ARROW,
+  SIDE_LABEL,
+  bridgeLabel,
+  bridgeObjective,
+  bridgeJoins,
+  bridgeHeading,
+  regionName,
+} from "@/lib/bridge-text";
 import type { Bridge } from "@/lib/board-data";
 import { cn } from "@/lib/cn";
 
-const HEADINGS = {
-  done: "BRIDGE CLEARED · REGION UNLOCKED",
-  locked: "BRIDGE LOCKED · CLEAR ITS PREREQ FIRST",
-  open: "BRIDGE · CLEAR THIS TO UNLOCK THE REGION",
-} as const;
-
-export function BridgeButton({ bridge, variant }: { bridge: Bridge; variant: "phone" | "desktop" }) {
+/**
+ * A bridge as a full-width button. `fromRegion` is the region the reader is
+ * looking at, so the button can say which of its four borders this bridge is on;
+ * without it the button just names both ends.
+ */
+export function BridgeButton({
+  bridge,
+  variant,
+  fromRegion,
+}: {
+  bridge: Bridge;
+  variant: "phone" | "desktop";
+  fromRegion?: string;
+}) {
   const { state, openTile } = useApp();
   const phone = variant === "phone";
-  const target = { ...bridge, kind: "bridge" as const };
-  const st = tileState(target, state);
-  const toneKey = st === "done" ? "done" : st === "locked" ? "locked" : "open";
-  const tone = BRIDGE_TONE[toneKey];
+  const approach = bridgeApproach(bridge, state);
+  const tone = BRIDGE_TONE[approach.status];
 
-  const named = bridge.name;
-  const label = bridge.mystery && (!named || named === "???") ? "Mystery bridge" : named;
+  const side = fromRegion ? bridgeSideFrom(bridge, fromRegion) : null;
+  const neighbour = fromRegion ? bridgeOther(bridge, fromRegion) : null;
+  const where = side
+    ? `${SIDE_LABEL[side]} BORDER ${SIDE_ARROW[side]} ${regionName(neighbour).toUpperCase()}`
+    : bridgeJoins(bridge).toUpperCase();
 
-  const info = infoFor(target);
+  const info = infoFor(bridge);
   const crew = (state.claims[bridge.id] || []).length;
   const sub =
-    bridge.o +
-    (st !== "done" && info.best ? "  ·  ≈ " + fmtHrs(info.best) : "") +
+    bridgeObjective(bridge) +
+    (approach.status !== "done" && info.best ? "  ·  ≈ " + fmtHrs(info.best) : "") +
     (crew ? "  ·  " + crew + " on it" : "");
 
   return (
@@ -41,10 +58,18 @@ export function BridgeButton({ bridge, variant }: { bridge: Bridge; variant: "ph
       )}
     >
       <span className={cn("block font-mono", tone.head, phone ? "text-[11px]" : "text-[9px]")}>
-        {HEADINGS[toneKey]}
+        {bridgeHeading(bridge, approach)}
       </span>
       <span className={cn("block", phone ? "mt-[4px] text-[16px]" : "mt-[3px] text-[14px]")}>
-        {label}
+        {bridgeLabel(bridge)}
+      </span>
+      <span
+        className={cn(
+          "block font-mono text-ink-dim",
+          phone ? "mt-[3px] text-[10px]" : "mt-[2px] text-[9px]",
+        )}
+      >
+        {where}
       </span>
       <span
         className={cn(

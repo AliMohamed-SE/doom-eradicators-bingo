@@ -81,11 +81,117 @@ export function findTarget(
   return b ? { ...b, kind: "bridge" } : null;
 }
 
-export function bridgeForRegion(
+// ---------------------------------------------------------------------------
+// Board geometry — the nine regions are a 3x3 grid, in REGIONS order:
+//
+//     north_west   north    north_east
+//     west         central  east
+//     south_west   south    south_east
+//
+// Bridges are the edges of that grid. Every region has up to four (north, east,
+// south, west); an edge region has none where it has no neighbour.
+// ---------------------------------------------------------------------------
+
+export type Side = "north" | "east" | "south" | "west";
+
+export interface Cell {
+  row: number;
+  col: number;
+}
+
+/** Grid cell of a region, from its position in REGIONS. */
+export function regionCell(regionId: string, regions: readonly Region[] = REGIONS): Cell | null {
+  const i = regions.findIndex((r) => r.id === regionId);
+  return i < 0 ? null : { row: Math.floor(i / 3), col: i % 3 };
+}
+
+/** The tile index within a 3x3 region that faces the given side. */
+const FACING_INDEX: Record<Side, number> = { north: 1, west: 3, east: 5, south: 7 };
+
+export interface BridgePlacement {
+  /** 1-indexed CSS grid row on the 5x5 board map */
+  gridRow: number;
+  /** 1-indexed CSS grid column */
+  gridColumn: number;
+  /** true when the two regions are side by side, so the bridge stands on end */
+  upright: boolean;
+}
+
+/**
+ * Where a bridge is drawn on the board map. Regions occupy the odd tracks of a
+ * 5x5 grid and the gutters between them are the even ones, so a bridge's cell
+ * falls straight out of the two region cells it sits between.
+ */
+export function bridgePlacement(
+  bridge: Bridge,
+  regions: readonly Region[] = REGIONS,
+): BridgePlacement | null {
+  const a = regionCell(bridge.between[0], regions);
+  const b = regionCell(bridge.between[1], regions);
+  if (!a || !b) return null;
+  const upright = a.row === b.row;
+  return {
+    gridRow: upright ? a.row * 2 + 1 : Math.min(a.row, b.row) * 2 + 2,
+    gridColumn: upright ? Math.min(a.col, b.col) * 2 + 2 : a.col * 2 + 1,
+    upright,
+  };
+}
+
+/** Where a region panel sits on that same 5x5 map. */
+export function regionPlacement(
+  regionId: string,
+  regions: readonly Region[] = REGIONS,
+): { gridRow: number; gridColumn: number } | null {
+  const c = regionCell(regionId, regions);
+  return c ? { gridRow: c.row * 2 + 1, gridColumn: c.col * 2 + 1 } : null;
+}
+
+/** Every bridge that touches a region, in board order. */
+export function bridgesForRegion(
   regionId: string,
   bridges: readonly Bridge[] = BRIDGES,
-): Bridge | null {
-  return bridges.find((b) => b.dest === regionId) ?? null;
+): Bridge[] {
+  return bridges.filter((b) => b.between[0] === regionId || b.between[1] === regionId);
+}
+
+/** The region on the far side of a bridge from `regionId` (null if it doesn't touch it). */
+export function bridgeOther(bridge: Bridge, regionId: string): string | null {
+  const [a, b] = bridge.between;
+  return regionId === a ? b : regionId === b ? a : null;
+}
+
+/** Which way you travel when crossing a bridge out of `regionId`. */
+export function bridgeSideFrom(
+  bridge: Bridge,
+  regionId: string,
+  regions: readonly Region[] = REGIONS,
+): Side | null {
+  const other = bridgeOther(bridge, regionId);
+  if (!other) return null;
+  const here = regionCell(regionId, regions);
+  const there = regionCell(other, regions);
+  if (!here || !there) return null;
+  if (there.row < here.row) return "north";
+  if (there.row > here.row) return "south";
+  if (there.col < here.col) return "west";
+  if (there.col > here.col) return "east";
+  return null;
+}
+
+/**
+ * The tile that must be done before a bridge can be worked, approaching from
+ * `regionId`: the tile in that region facing the bridge. Not stored on the
+ * bridge — a two-way bridge has one prereq per side, and both are geometry.
+ */
+export function bridgePrereq(
+  bridge: Bridge,
+  regionId: string,
+  regions: readonly Region[] = REGIONS,
+): string | null {
+  const side = bridgeSideFrom(bridge, regionId, regions);
+  if (!side) return null;
+  const region = regions.find((r) => r.id === regionId);
+  return region?.tiles[FACING_INDEX[side]]?.id ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,16 +202,121 @@ export function isDone(done: ReadonlySet<string>, id: string): boolean {
   return id === FREE_SPACE || done.has(id);
 }
 
+/**
+ * Every region reachable from central over cleared bridges. Bridges are two-way,
+ * so this is plain graph reachability, not "one bridge owns one region".
+ */
+export function unlockedRegions(
+  done: ReadonlySet<string>,
+  bridges: readonly Bridge[] = BRIDGES,
+): ReadonlySet<string> {
+  const cached = bridges === BRIDGES ? UNLOCKED_CACHE.get(done) : undefined;
+  if (cached) return cached;
+  const open = new Set<string>(["central"]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const b of bridges) {
+      if (!done.has(b.id)) continue;
+      const [a, c] = b.between;
+      if (open.has(a) && !open.has(c)) {
+        open.add(c);
+        grew = true;
+      } else if (open.has(c) && !open.has(a)) {
+        open.add(a);
+        grew = true;
+      }
+    }
+  }
+  if (bridges === BRIDGES) UNLOCKED_CACHE.set(done, open);
+  return open;
+}
+
+// The done-set is rebuilt once per snapshot, so keying the reachability result
+// off it keeps the 81 per-tile lookups from re-walking the graph every time.
+const UNLOCKED_CACHE = new WeakMap<ReadonlySet<string>, ReadonlySet<string>>();
+
 export function regionUnlocked(
   regionId: string,
   done: ReadonlySet<string>,
   bridges: readonly Bridge[] = BRIDGES,
 ): boolean {
-  if (regionId === "central") return true;
-  const b = bridgeForRegion(regionId, bridges);
-  return !!b && done.has(b.id);
+  return unlockedRegions(done, bridges).has(regionId);
 }
 
+/**
+ * `available`/`working` — crossable now, from whichever side is open.
+ * `redundant` — both its regions are already open, so it leads nowhere new.
+ * `locked` — neither side is open yet, its facing tile isn't done, or it has no
+ * objective on record.
+ */
+export type BridgeStatus = TileState | "redundant";
+
+export interface BridgeApproach {
+  status: BridgeStatus;
+  /** the open region you would cross from, when there is exactly one */
+  from: string | null;
+  /** the region this bridge would open */
+  to: string | null;
+  /** the tile that gates it, from `from` */
+  prereq: string | null;
+}
+
+export function bridgeApproach(
+  bridge: Bridge,
+  state: Pick<EventState, "done"> & Partial<Pick<EventState, "claims">>,
+  bridges: readonly Bridge[] = BRIDGES,
+  regions: readonly Region[] = REGIONS,
+): BridgeApproach {
+  const [a, b] = bridge.between;
+  const open = unlockedRegions(state.done, bridges);
+  const aOpen = open.has(a);
+  const bOpen = open.has(b);
+  const from = aOpen && !bOpen ? a : bOpen && !aOpen ? b : null;
+  const to = from ? bridgeOther(bridge, from) : null;
+  const prereq = from ? bridgePrereq(bridge, from, regions) : null;
+
+  const status: BridgeStatus = isDone(state.done, bridge.id)
+    ? "done"
+    : aOpen && bOpen
+      ? "redundant"
+      : !from || bridge.mystery || (prereq && !isDone(state.done, prereq))
+        ? "locked"
+        : crewState(bridge.id, state.claims ?? {});
+
+  return { status, from, to, prereq };
+}
+
+export function bridgeStatus(
+  bridge: Bridge,
+  state: Pick<EventState, "done"> & Partial<Pick<EventState, "claims">>,
+  bridges: readonly Bridge[] = BRIDGES,
+  regions: readonly Region[] = REGIONS,
+): BridgeStatus {
+  return bridgeApproach(bridge, state, bridges, regions).status;
+}
+
+/**
+ * The quickest bridge into a locked region, for costing it. A region opens over
+ * ANY of its borders, so there is no such thing as "the" way in — this is only
+ * the cheapest of them, and nothing should present it as the route to take.
+ * Null once the region is open, or when every bridge on its borders is cleared.
+ */
+export function fastestWayIn(
+  regionId: string,
+  done: ReadonlySet<string>,
+  bridges: readonly Bridge[] = BRIDGES,
+): Bridge | null {
+  if (regionUnlocked(regionId, done, bridges)) return null;
+  // Hours on record first; a bridge with no rate sorts behind one that has a
+  // rate, and a mystery bridge — which has nothing to estimate at all — last.
+  const cost = (b: Bridge) =>
+    b.mystery ? Number.MAX_SAFE_INTEGER : (infoFor(b).best ?? Number.MAX_SAFE_INTEGER - 1);
+  return (
+    bridgesForRegion(regionId, bridges)
+      .filter((b) => !done.has(b.id))
+      .sort((a, b) => cost(a) - cost(b))[0] ?? null
+  );
+}
 function crewState(id: string, claims: EventState["claims"]): TileState {
   return (claims[id] || []).length ? "working" : "available";
 }
@@ -121,10 +332,10 @@ export function tileState(
 ): TileState {
   if (isDone(state.done, target.id)) return "done";
   if (target.kind === "bridge") {
-    const prereq = target.prereq;
-    if (target.mystery && !prereq) return "locked";
-    if (prereq && !state.done.has(prereq)) return "locked";
-    return crewState(target.id, state.claims);
+    const st = bridgeStatus(target, state, bridges);
+    // A redundant bridge is still workable, just pointless — the styling calls
+    // that out, but its tile state stays in the normal four-state vocabulary.
+    return st === "redundant" ? crewState(target.id, state.claims) : st;
   }
   if (!regionUnlocked(target.regionId, state.done, bridges)) return "locked";
   return crewState(target.id, state.claims);
@@ -455,8 +666,10 @@ export function regionEstimate(
     else unknown++;
     return 0;
   };
-  const b = bridgeForRegion(region.id, bridges);
-  if (b && !done.has(b.id)) {
+  // Costed over the quickest border in, not all of them — you only ever need to
+  // clear one bridge to open a region.
+  const b = fastestWayIn(region.id, done, bridges);
+  if (b) {
     left++;
     bridgeHours = tally(b);
   }

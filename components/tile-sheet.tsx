@@ -17,6 +17,7 @@ import {
   intentPlayers,
   infoFor,
   fmtHrs,
+  bridgeApproach,
 } from "@/lib/scoring";
 import {
   logProgress,
@@ -25,6 +26,13 @@ import {
   toggleFocus,
   forceCompletion,
 } from "@/app/actions";
+import {
+  bridgeJoins,
+  bridgeHeading,
+  bridgeObjective,
+  bridgeLabel,
+  regionName,
+} from "@/lib/bridge-text";
 import { cn } from "@/lib/cn";
 
 const STATE_LABEL = { locked: "LOCKED", available: "OPEN", working: "ON IT", done: "DONE" } as const;
@@ -36,7 +44,8 @@ export function TileSheet({ id }: { id: string }) {
   const target = findTarget(id);
   if (!target) return null;
 
-  const displayName = target.kind === "bridge" ? target.name : target.n;
+  const displayName = target.kind === "bridge" ? bridgeLabel(target) : target.n;
+  const approach = target.kind === "bridge" ? bridgeApproach(target, state) : null;
 
   const uid = me?.id ?? "";
   const st = tileState(target, state);
@@ -53,7 +62,7 @@ export function TileSheet({ id }: { id: string }) {
 
   const kindLabel =
     target.kind === "bridge"
-      ? "BRIDGE INTO " + (target.dest || "???").toUpperCase().replace("_", "-")
+      ? "BRIDGE · " + bridgeJoins(target).toUpperCase()
       : target.regionName.toUpperCase() + " REGION";
 
   const rules = tileRuleList(id);
@@ -107,11 +116,32 @@ export function TileSheet({ id }: { id: string }) {
       : "Nobody on this yet";
 
   return (
-    <SheetShell kindLabel={kindLabel} name={target.kind === "bridge" ? target.name : target.n} onClose={closeDrawer}>
+    <SheetShell kindLabel={kindLabel} name={displayName} onClose={closeDrawer}>
       {/* Objective */}
       <div className="border-2 border-border-default bg-parchment p-3 text-[16px] leading-[1.35] text-parchment-ink">
-        {target.o}
+        {target.kind === "bridge" ? bridgeObjective(target) : target.o}
       </div>
+
+      {/* Where this bridge lies, and which way it would be crossed. */}
+      {target.kind === "bridge" && approach && (
+        <div className="grid gap-[5px] border-2 border-border-default bg-surface-inset p-[10px]">
+          <div className="font-mono text-[11px] text-ink-dim">WHERE IT LIES</div>
+          <div className="text-[15px] leading-[1.35]">
+            On the border between {regionName(target.between[0])} and{" "}
+            {regionName(target.between[1])}.
+          </div>
+          <div className={cn("font-mono text-[11px]", approach.status === "locked" ? "text-ink-dim" : "text-amber-text")}>
+            {bridgeHeading(target, approach)}
+          </div>
+          <div className="text-[13px] leading-[1.35] text-ink-dim">
+            {approach.status === "redundant"
+              ? "Both regions are already open, so clearing this one opens nothing new."
+              : approach.from
+                ? "Crossed from " + regionName(approach.from) + ", which is already open."
+                : "Neither side is open yet — get to one of them first."}
+          </div>
+        </div>
+      )}
 
       {/* Rules for this tile */}
       {rules.length > 0 && (
