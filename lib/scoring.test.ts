@@ -317,9 +317,10 @@ describe("fastestWayIn", () => {
     expect(fastestWayIn("south_east", new Set())?.mystery).toBe(1);
   });
 
-  it("has no named way into south yet — every border there is a mystery", () => {
-    expect(bridgesForRegion("south").every((b) => b.mystery)).toBe(true);
-    expect(fastestWayIn("south", new Set())?.mystery).toBe(1);
+  it("routes into south over Cheese and Fire, its only named border", () => {
+    const named = bridgesForRegion("south").filter((b) => !b.mystery);
+    expect(named.map((b) => b.id)).toEqual(["bridge_cheese_and_fire"]);
+    expect(fastestWayIn("south", new Set())?.id).toBe("bridge_cheese_and_fire");
   });
 });
 
@@ -337,7 +338,7 @@ describe("opening a region over any border", () => {
     const byBorder: Record<string, string> = {
       north: "bridge_traditional_start",
       east: "bridge_central_east_unknown",
-      south: "bridge_central_south_unknown",
+      south: "bridge_cheese_and_fire",
       west: "bridge_m_lady",
     };
     for (const [side, id] of Object.entries(byBorder)) {

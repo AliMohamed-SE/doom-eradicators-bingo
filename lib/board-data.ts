@@ -397,8 +397,9 @@ export const BRIDGES: Bridge[] = [
   // ---- top-bottom neighbours, middle row into bottom row ----
   { id: "bridge_south_west_unknown", name: "???", o: "???", between: ["west", "south_west"], mystery: 1 },
   // Not a bridge of its own: "Abyssal Cryer" is central's bottom-middle TILE, which
-  // is the prereq facing this border. The bridge itself is still to be announced.
-  { id: "bridge_central_south_unknown", name: "???", o: "???", between: ["central", "south"], mystery: 1 },
+  // is the prereq facing this border. The bridge itself is "Cheese and Fire".
+  { id: "bridge_cheese_and_fire", name: "Cheese and Fire", o: "Get 3x Fire Capes/1x Infernal Cape", between: ["central", "south"], s: "Fight Caves / Inferno", r: "No drop rate — one cape per completed run. A Fight Caves run is about 1h15m start to finish; the Inferno is a single 2h+ run with a much lower success rate.", w: "https://oldschool.runescape.wiki/w/Fire_cape",
+    i: { need: 3, c: "e", fix: 5, note: "Three fire capes is the realistic route: each completed Fight Caves is a guaranteed cape, roughly 1h15m a run plus resets, so about 5 hours for three. One infernal cape also clears it, but expect several 2h+ attempts unless someone already has the Inferno down." } },
   { id: "bridge_south_east_unknown", name: "???", o: "???", between: ["east", "south_east"], mystery: 1 },
 
   // ---- left-right neighbours, bottom row ----
