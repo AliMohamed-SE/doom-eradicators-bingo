@@ -153,7 +153,7 @@ export const REGIONS: Region[] = [
       i: { need: 1, c: "e", d: [{ n: "Duke Sucellus (any qualifying drop)", r: 307, k: 32 }], note: "Virtus pieces 1/1,536 each, Eye of the duke 1/768 — combined ≈ 1/307 per kill." } }),
     t("Astral Projection", "Craft 10k Astral Runes (no extracts)", { s: "Astral altar", r: "N/A — collection challenge", w: "https://oldschool.runescape.wiki/w/Astral_rune",
       i: { c: "e", hr: { got: 10000, per: 1700, u: "astral runes" }, note: "About 1,700 an hour with pure essence and a Lunar teleport loop. No extracts allowed, so no shortcut." } }),
-    t("Lord of the Rings", "Get all unique DK rings", { s: "Dagannoth Kings", r: "Each DK ring is 1/128 from its corresponding King.", w: "https://oldschool.runescape.wiki/w/Dagannoth_Kings",
+    t("Lord of the Rings", "Get 4x unique DK rings", { s: "Dagannoth Kings", r: "Each DK ring is 1/128 from its corresponding King.", w: "https://oldschool.runescape.wiki/w/Dagannoth_Kings",
       i: { c: "e", fix: 5.5, d: [{ n: "Dagannoth Kings (per ring)", r: 128, k: 140, u: "king kills" }], note: "Four rings at 1/128 each — expect about 270 full King rotations for the set, not 4×128. Rex carries both Berserker and Warrior." } }),
     t("Return of the Money Dragon", "Get 1x Jar of Decay / Dragonbone Necklace / Either Visage from Vorkath", { s: "Vorkath", r: "Dragonbone necklace 1/1,000; draconic visage 1/5,000; skeletal visage 1/5,000. Jar of decay is a separate tertiary.", w: "https://oldschool.runescape.wiki/w/Vorkath",
       i: { need: 1, c: "w", d: [{ n: "Vorkath (any qualifying drop)", r: 577, k: 30 }], note: "Dragonbone necklace 1/1,000, jar of decay 1/3,000, each visage 1/5,000 — combined ≈ 1/577 per kill." } })
