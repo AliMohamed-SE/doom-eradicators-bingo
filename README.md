@@ -78,10 +78,10 @@ Rules held to:
    LEADER_CODE=some-secret-code         # what the leader types to unlock controls
    ```
 4. Apply the schema: run `supabase/migrations/0001_init.sql`, then `0002_discord_auth.sql`, then
-   `0004_tile_items.sql` in the Supabase **SQL editor** (or `supabase db push`). These create the
-   tables + read-only RLS, enable Realtime, add the `players.auth_user_id` link column, and add the
-   per-item tick table for checklist tiles. (`0003` deletes a player who left; skip it on a fresh
-   database.)
+   `0004_tile_items.sql`, then `0005_tile_proofs.sql` in the Supabase **SQL editor** (or
+   `supabase db push`). These create the tables + read-only RLS, enable Realtime, add the
+   `players.auth_user_id` link column, add the per-item tick table for checklist tiles, and add the
+   proof-links table. (`0003` deletes a player who left; skip it on a fresh database.)
 5. **Enable Discord auth** (see the Discord setup section below), and add your local + prod URLs under
    **Authentication → URL Configuration** (Site URL + `http://localhost:3000/auth/callback` and
    `https://<your-app>.vercel.app/auth/callback` as Redirect URLs).
@@ -123,6 +123,8 @@ Static board content is in code. These tables hold event state (see the migratio
 - `tile_progress (tile_id, player_id, count ≥ 0, …)` — per-player progress, the authoritative total
 - `tile_items (tile_id, item_key, player_id, …)` — who ticked which part of a checklist tile
 - `tile_notes (tile_id pk, note, …)` — one shared line of text, on the tiles that need a decision
+- `tile_proofs (id uuid pk, tile_id, title, url, ord, updated_by, …)` — the screenshot links behind a
+  completion. Leaders write them (the `PROOF` button in the tile drawer header); everyone reads them
 - `tile_completions (tile_id pk, completed_at, completed_by)` — derived from progress or leader-forced
 - `tile_intents (tile_id, player_id, intent in ('want','ok','no'))` — planning answers
 - `focus (kind in ('region','tile'), target_id)` — leader's team focus
@@ -213,6 +215,10 @@ link) with `players.id = auth.uid()` and per-row RLS — see git history for tha
 ## Out of scope
 
 No image uploads, no Discord integration, no admin CRUD for tiles, no dark/light toggle, no i18n.
+`tile_proofs` keeps that first promise: it stores a title and a URL, and the app never hosts, fetches
+or thumbnails an image — it is a link list, not the start of an uploader. The PDF export is likewise
+dependency-free: `/report` is an ordinary page with an `@media print` block at the end of
+`app/globals.css`, and the browser's "Save as PDF" does the rest.
 To change board content, edit `lib/board-data.ts` — nothing to re-seed, because goals are resolved at
 runtime. Two caveats when you do:
 
@@ -221,3 +227,7 @@ runtime. Two caveats when you do:
 - **Adding a checklist item needs the migration to learn about it too.** `TILE_TRACKING` item keys are
   primary keys in `tile_items`, and `0004_tile_items.sql` names them all for the backfill.
   `scoring.test.ts` fails if the two lists disagree.
+- **A new table needs wiring in two places**: the migration's guarded `do $$` loop (read-only RLS
+  policy + the `supabase_realtime` publication) *and* the `TABLES` array in `components/realtime.tsx`.
+  Miss either half and reads keep working while nothing ever live-updates; `proof.test.ts` guards the
+  `tile_proofs` pair.

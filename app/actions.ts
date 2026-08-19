@@ -23,6 +23,7 @@ import {
   tickCredit,
   type Target,
 } from "@/lib/scoring";
+import { cleanProofRows, PROOF_MAX_ROWS, type ProofLink } from "@/lib/proof";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 function refresh() {
@@ -429,6 +430,10 @@ async function wipeProgress(db: SupabaseClient, tileIds: string[]) {
   await db.from("tile_progress").delete().in("tile_id", tileIds);
   await db.from("tile_items").delete().in("tile_id", tileIds);
   await db.from("tile_notes").delete().in("tile_id", tileIds);
+  // tile_proofs is deliberately NOT wiped. Undoing a completion resets what the team
+  // logged; the screenshots behind it are the one artefact that existed to outlive
+  // exactly this kind of correction, and a leader who wants them gone can empty the
+  // list from the tile.
 }
 
 /** Leader force-done: fill progress to the goal, credited to the leader (0/N -> N/N). */
@@ -492,6 +497,70 @@ export async function setTileNote(tileId: string, note: string) {
         .upsert({ tile_id: tileId, note: text, updated_by: id, updated_at: new Date().toISOString() })
     : await db.from("tile_notes").delete().eq("tile_id", tileId);
   if (error) return { error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Tile proof — the screenshot links behind a completion, attached by a leader.
+//
+// One action for the whole list, because the list is the unit of work: the popup opens
+// on every row a tile has, the leader edits them together, and one SAVE replaces the
+// lot. That also keeps the URL rule, the leader gate and the optimistic patch each in
+// exactly one place. The cost is last-writer-wins between two leaders editing the same
+// tile at the same moment, which is precisely what setTileNote already does.
+// ---------------------------------------------------------------------------
+export async function setTileProofs(tileId: string, rows: ProofLink[]) {
+  const id = await requirePlayer();
+  if (!id) return { error: "Pick a character first." };
+  // Leader-only, the same gate as the LEADER CONTROLS panel. Everyone can read proof;
+  // only a leader decides what counts as proof.
+  if (!(await actingLeader())) return { error: "Leader only." };
+
+  const target = findTarget(tileId);
+  if (!target) return { error: "Unknown tile." };
+
+  // Bound the work before doing any of it — `rows` is wholly untrusted. The generous
+  // multiple is so a leader who pasted duplicates gets them de-duped below rather than
+  // rejected outright.
+  if (!Array.isArray(rows) || rows.length > PROOF_MAX_ROWS * 4) {
+    return { error: "Too many links." };
+  }
+
+  // The SAME normaliser the popup runs, so a client that validated its rows can only
+  // get an error back for something genuinely exceptional.
+  const clean = cleanProofRows(rows);
+
+  const db = admin();
+  const now = new Date().toISOString();
+
+  if (clean.length) {
+    const up = await db.from("tile_proofs").upsert(
+      clean.map((r) => ({
+        id: r.id,
+        tile_id: tileId,
+        title: r.title,
+        url: r.url,
+        ord: r.ord,
+        updated_at: now,
+        updated_by: id,
+      })),
+      { onConflict: "id" },
+    );
+    if (up.error) return { error: up.error.message };
+  }
+
+  // Delete LAST, and only the rows that are gone. There is no transaction here — this
+  // project has no stored procedures, so an action is N independent round trips — so
+  // the ordering IS the safety story: a failure between the two calls leaves a stale
+  // extra link, never a tile whose evidence has vanished. Upserting rather than
+  // replacing also preserves created_at on rows nobody touched.
+  const keep = clean.map((r) => `"${r.id}"`).join(",");
+  const del = clean.length
+    ? await db.from("tile_proofs").delete().eq("tile_id", tileId).not("id", "in", `(${keep})`)
+    : await db.from("tile_proofs").delete().eq("tile_id", tileId);
+  if (del.error) return { error: del.error.message };
+
   refresh();
   return { ok: true };
 }

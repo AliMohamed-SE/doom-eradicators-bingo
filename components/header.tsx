@@ -23,7 +23,12 @@ export function Header() {
   const score = scoreOf(state.done);
 
   const tabs = isLeader
-    ? [...TABS, { href: "/roster", label: "ROSTER" }, { href: "/contrib", label: "CONTRIB" }]
+    ? [
+        ...TABS,
+        { href: "/roster", label: "ROSTER" },
+        { href: "/contrib", label: "CONTRIB" },
+        { href: "/report", label: "REPORT" },
+      ]
     : TABS;
 
   function unlock() {
@@ -46,7 +51,8 @@ export function Header() {
   }
 
   return (
-    <div className="sticky top-0 z-40 border-b-2 border-border-default header-gradient">
+    /* no-print: the nav is app chrome, not part of the exported report. */
+    <div className="no-print sticky top-0 z-40 border-b-2 border-border-default header-gradient">
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-[10px] p-[10px_12px]">
         <div className="min-w-[150px] flex-1">
           <div className="font-mono text-[15px] tracking-[.5px] text-orange [text-shadow:2px_2px_0_#000]">

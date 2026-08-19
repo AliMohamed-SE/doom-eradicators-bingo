@@ -10,6 +10,7 @@ const TABLES = [
   "tile_progress",
   "tile_items",
   "tile_notes",
+  "tile_proofs",
   "tile_completions",
   "tile_intents",
   "focus",

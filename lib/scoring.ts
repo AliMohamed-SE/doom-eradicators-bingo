@@ -23,6 +23,7 @@ import {
   type TileTracking,
   type Confidence,
 } from "./board-data";
+import type { ProofLink } from "./proof";
 
 export type TileState = "locked" | "available" | "working" | "done";
 export type Intent = "want" | "ok" | "no";
@@ -41,6 +42,12 @@ export interface EventState {
   items: Record<string, Record<string, string>>;
   /** tileId -> the shared free-text note on that tile, for the few that have one */
   notes: Record<string, string>;
+  /**
+   * tileId -> the proof links a leader attached, in display order. Evidence only:
+   * nothing here affects completion, scoring or unlocks, so a tile with no proof is
+   * still done. The report is what makes the gap visible.
+   */
+  proofs: Record<string, ProofLink[]>;
   /** completed tile/bridge ids (free_space is implicitly done, need not be present) */
   done: ReadonlySet<string>;
   /** tileId -> playerId -> intent */
@@ -481,6 +488,14 @@ export function completionAfter(alreadyDone: boolean, total: number, goal: numbe
 // ---------------------------------------------------------------------------
 // Checklist items
 // ---------------------------------------------------------------------------
+
+/** The proof links on one target, in display order; empty for an untouched one. */
+export function proofsFor(
+  proofs: EventState["proofs"],
+  id: string,
+): readonly ProofLink[] {
+  return proofs[id] ?? [];
+}
 
 /** itemKey -> playerId for one target. */
 export function itemOwners(

@@ -53,6 +53,7 @@ const emptyState = (over: Partial<EventState> = {}): EventState => ({
   progress: {},
   items: {},
   notes: {},
+  proofs: {},
   done: new Set<string>(),
   intents: {},
   focusRegions: [],

@@ -5,6 +5,7 @@ import { getAuthUser } from "./auth";
 import { hasLeaderCode } from "./session";
 import { isLeaderPlayer } from "./board-data";
 import type { EventState, Intent } from "./scoring";
+import type { ProofLink } from "./proof";
 import type { RareId } from "./board-data";
 import type { PlayerRow, CompletionMeta, AppSnapshot } from "./types";
 
@@ -36,16 +37,26 @@ export async function loadAppData(): Promise<AppData> {
   const supabase = admin();
   const [user, codeOk] = await Promise.all([getAuthUser(), hasLeaderCode()]);
 
-  const [players, claims, progress, items, notes, completions, intents, focus] = await Promise.all([
-    supabase.from("players").select("id, name, is_leader, rares, task, auth_user_id").order("name"),
-    supabase.from("tile_claims").select("tile_id, player_id"),
-    supabase.from("tile_progress").select("tile_id, player_id, count"),
-    supabase.from("tile_items").select("tile_id, item_key, player_id"),
-    supabase.from("tile_notes").select("tile_id, note"),
-    supabase.from("tile_completions").select("tile_id, completed_at, completed_by"),
-    supabase.from("tile_intents").select("tile_id, player_id, intent"),
-    supabase.from("focus").select("kind, target_id"),
-  ]);
+  const [players, claims, progress, items, notes, completions, intents, focus, proofs] =
+    await Promise.all([
+      supabase
+        .from("players")
+        .select("id, name, is_leader, rares, task, auth_user_id")
+        .order("name"),
+      supabase.from("tile_claims").select("tile_id, player_id"),
+      supabase.from("tile_progress").select("tile_id, player_id, count"),
+      supabase.from("tile_items").select("tile_id, item_key, player_id"),
+      supabase.from("tile_notes").select("tile_id, note"),
+      supabase.from("tile_completions").select("tile_id, completed_at, completed_by"),
+      supabase.from("tile_intents").select("tile_id, player_id, intent"),
+      supabase.from("focus").select("kind, target_id"),
+      // Ordered here so the grouping below preserves display order without sorting.
+      supabase
+        .from("tile_proofs")
+        .select("id, tile_id, title, url, ord")
+        .order("tile_id")
+        .order("ord"),
+    ]);
 
   // supabase-js resolves rather than throws, so a missing table reads exactly like
   // an empty one. Say so out loud — "0004 has not been applied" and "nobody has
@@ -54,6 +65,14 @@ export async function loadAppData(): Promise<AppData> {
     console.error(
       "tile_items / tile_notes read failed (is migration 0004 applied?):",
       items.error?.message ?? notes.error?.message,
+    );
+  }
+  // Same trap, one migration later: "0005 has not been applied" and "no leader has
+  // attached any proof yet" are indistinguishable on the board otherwise.
+  if (proofs.error) {
+    console.error(
+      "tile_proofs read failed (is migration 0005 applied?):",
+      proofs.error.message,
     );
   }
 
@@ -90,6 +109,16 @@ export async function loadAppData(): Promise<AppData> {
     if (n.note) noteMap[n.tile_id] = n.note;
   });
 
+  const proofMap: Record<string, ProofLink[]> = {};
+  (proofs.data ?? []).forEach((p) => {
+    (proofMap[p.tile_id] ??= []).push({
+      id: p.id,
+      title: p.title ?? "",
+      url: p.url,
+      ord: p.ord,
+    });
+  });
+
   const done = new Set<string>((completions.data ?? []).map((c) => c.tile_id));
 
   const intentMap: Record<string, Record<string, Intent>> = {};
@@ -114,6 +143,7 @@ export async function loadAppData(): Promise<AppData> {
     progress: progressMap,
     items: itemMap,
     notes: noteMap,
+    proofs: proofMap,
     done,
     intents: intentMap,
     focusRegions,
@@ -147,6 +177,7 @@ export function toSnapshot(data: AppData): AppSnapshot {
       progress: data.state.progress,
       items: data.state.items,
       notes: data.state.notes,
+      proofs: data.state.proofs,
       doneIds: Array.from(data.state.done),
       intents: data.state.intents,
       focusRegions: [...data.state.focusRegions],

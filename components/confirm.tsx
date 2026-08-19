@@ -38,7 +38,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       {children}
       {req && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(8,6,4,.72)] p-5">
+        <div className="no-print fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(8,6,4,.72)] p-5">
           <button
             type="button"
             aria-label="Cancel"

@@ -14,6 +14,7 @@ import type { AppSnapshot, PlayerRow } from "@/lib/types";
 import { toEventState } from "@/lib/types";
 import { completionAfter } from "@/lib/scoring";
 import type { EventState, Intent } from "@/lib/scoring";
+import type { ProofLink } from "@/lib/proof";
 
 type Drawer =
   | { kind: "tile"; id: string }
@@ -206,6 +207,26 @@ export function patchNote(tileId: string, note: string) {
     if (note) notes[tileId] = note;
     else delete notes[tileId];
     return { ...s, state: { ...s.state, notes } };
+  };
+}
+
+/**
+ * The whole proof list on a target, replaced in one go — which is exactly what the
+ * editor saves.
+ *
+ * Optimism here is cheap and safe in a way patchProgress is not: there is no shared
+ * rule to keep in step with the server, just an assignment of the payload that was
+ * sent. Row ids are minted client-side precisely so these are the rows the server
+ * stores, which means the following router.refresh() replaces the list with an
+ * identical one instead of churning the DOM. Worth doing because the leader has just
+ * typed this content and will look for it the instant the popup closes.
+ */
+export function patchProofs(tileId: string, rows: ProofLink[]) {
+  return (s: AppSnapshot): AppSnapshot => {
+    const proofs = { ...s.state.proofs };
+    if (rows.length) proofs[tileId] = rows;
+    else delete proofs[tileId];
+    return { ...s, state: { ...s.state, proofs } };
   };
 }
 

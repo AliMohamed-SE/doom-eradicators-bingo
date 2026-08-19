@@ -1,6 +1,7 @@
 // Client-safe shared types. No server-only imports here so both server and
 // client components can use them.
 import type { RareId } from "./board-data";
+import type { ProofLink } from "./proof";
 import type { EventState, Intent } from "./scoring";
 
 export interface PlayerRow {
@@ -26,6 +27,8 @@ export interface SerializableState {
   items: Record<string, Record<string, string>>;
   /** tileId -> shared free-text note */
   notes: Record<string, string>;
+  /** tileId -> leader-attached proof links, in display order */
+  proofs: Record<string, ProofLink[]>;
   doneIds: string[];
   intents: Record<string, Record<string, Intent>>;
   focusRegions: string[];
@@ -50,6 +53,7 @@ export function toEventState(s: SerializableState): EventState {
     progress: s.progress,
     items: s.items,
     notes: s.notes,
+    proofs: s.proofs,
     done: new Set(s.doneIds),
     intents: s.intents,
     focusRegions: s.focusRegions,

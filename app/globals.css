@@ -169,3 +169,180 @@ a:hover {
 .pixelated {
   image-rendering: pixelated;
 }
+
+/* Screen-side half of the two print helpers below. */
+.print-only {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Print — the leader report at /report, exported via window.print() and the
+   browser's own "Save as PDF". Two rules:
+
+     1. App chrome opts out with .no-print (the nav, the drawers, the toolbar).
+     2. The dark skin is re-skinned to ink-on-white by redefining the theme
+        tokens. Browsers omit background COLOURS by default and we cannot tick
+        "Background graphics" on the reader's behalf, so the parchment skin
+        would print as cream text on an unpainted page. Borders and text always
+        print — which is also why the report states PROOF / NO PROOF in words
+        and never in colour.
+
+   Every colour utility in this app compiles to var(--color-*), so the token
+   overrides below re-skin the whole document without touching one component.
+   They must come after the @theme block at the top of this file: same
+   specificity, so source order is what decides.
+
+   This block is global rather than scoped to .print-doc, so printing any page
+   comes out legible. If /board ever needs to print with its state fills
+   intact, move the :root block into .print-doc (custom properties inherit, so
+   the report subtree still re-skins) and leave the html/body reset global.
+   --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm;
+  }
+
+  :root {
+    /* Surfaces and parchment flatten to white */
+    --color-bg: #fff;
+    --color-bg-wash: #fff;
+    --color-surface: #fff;
+    --color-surface-dark: #fff;
+    --color-surface-inset: #fff;
+    --color-surface-inset2: #fff;
+    --color-surface-btn: #fff;
+    --color-parchment: #fff;
+    --color-parchment-ink: #000;
+    --color-parchment-head: #000;
+    --color-parchment-rule: #999;
+    --color-parchment-tileref: #000;
+    --color-parchment-foot: #333;
+
+    /* Borders carry every division that a fill used to */
+    --color-border-default: #444;
+    --color-border-dim: #aaa;
+
+    /* Text, and the two accents that were only ever legible on dark */
+    --color-ink: #000;
+    --color-ink-dim: #444;
+    --color-ink-dim2: #111;
+    --color-ink-faint: #666;
+    --color-orange: #000;
+    --color-yellow: #000;
+    --color-link: #000;
+    --color-link-hover: #000;
+
+    --color-amber-border: #444;
+    --color-amber-bg: #fff;
+    --color-amber-bg2: #fff;
+    --color-amber-btn: #fff;
+    --color-amber-text: #000;
+    --color-amber-body: #000;
+    --color-amber-soft: #000;
+
+    --color-green-border: #444;
+    --color-green-border2: #444;
+    --color-green-bg: #fff;
+    --color-green-bg2: #fff;
+    --color-green-bg3: #fff;
+    --color-green-bg4: #fff;
+    --color-green-text: #000;
+    --color-green-text2: #000;
+    --color-green-soft: #000;
+    --color-green-soft2: #333;
+
+    --color-blue-border: #444;
+    --color-blue-bg: #fff;
+    --color-blue-text: #000;
+
+    --color-red-border: #444;
+    --color-red-bg: #fff;
+    --color-red-text: #000;
+    --color-red-text2: #333;
+
+    /* Tile fills: the state survives on the border and the badge text */
+    --color-tile-locked-bg: #fff;
+    --color-tile-locked-border: #aaa;
+    --color-tile-locked-text: #666;
+    --color-tile-available-bg: #fff;
+    --color-tile-available-border: #444;
+    --color-tile-available-text: #000;
+    --color-tile-working-bg: #fff;
+    --color-tile-working-border: #444;
+    --color-tile-working-text: #000;
+    --color-tile-done-bg: #fff;
+    --color-tile-done-border: #000;
+    --color-tile-done-text: #000;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    color: #000;
+  }
+
+  /* The @utility treatments above are background-image, which paper drops anyway;
+     say so explicitly. Every shadow in this skin is a hard-coded black offset
+     that smears when printed. */
+  .page-wash,
+  .panel-gradient,
+  .region-gradient,
+  .header-gradient,
+  .sheet-gradient,
+  .focus-gradient,
+  .mine-gradient,
+  .roster-btn-gradient {
+    background-image: none !important;
+  }
+  * {
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Report flow: one column, a fresh page per section, blocks kept whole.
+     The sibling selector rather than a bare break-before avoids a blank first page. */
+  .print-doc {
+    max-width: none !important;
+  }
+  .print-section + .print-section {
+    break-before: page;
+  }
+  .print-block {
+    break-inside: avoid;
+  }
+  .print-heading {
+    break-after: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr,
+  li {
+    break-inside: avoid;
+  }
+
+  /* Discord and Imgur proof URLs have to wrap, not run off the page box. */
+  .print-url {
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+}

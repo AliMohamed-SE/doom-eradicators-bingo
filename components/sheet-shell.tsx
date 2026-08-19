@@ -6,17 +6,25 @@ export function SheetShell({
   kindLabel,
   name,
   onClose,
+  action,
   maxWidth = "640px",
   children,
 }: {
   kindLabel: string;
   name: string;
   onClose: () => void;
+  /**
+   * Optional button rendered immediately left of the ×, for an action that belongs to
+   * the whole target rather than to a panel inside it. Keep it 44px wide: the header is
+   * a flex row and anything wider wraps a long tile name to a third line on a phone.
+   */
+  action?: React.ReactNode;
   maxWidth?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[rgba(8,6,4,.72)]">
+    /* no-print, so hitting Ctrl+P with a drawer open doesn't put it in the PDF. */
+    <div className="no-print fixed inset-0 z-[60] flex items-end justify-center bg-[rgba(8,6,4,.72)]">
       <button
         type="button"
         aria-label="Close"
@@ -34,6 +42,7 @@ export function SheetShell({
               {name}
             </div>
           </div>
+          {action}
           <button
             type="button"
             onClick={onClose}

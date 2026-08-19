@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useApp, patchClaim } from "./app-provider";
 import { useConfirm } from "./confirm";
 import { SheetShell } from "./sheet-shell";
 import { TileProgress } from "./tile-progress";
+import { ProofButton, ProofPanel, ProofEditor } from "./tile-proof";
 import { SKIN } from "./variants";
 import { RARES } from "@/lib/board-data";
 import {
@@ -17,6 +19,7 @@ import {
   infoFor,
   fmtHrs,
   bridgeApproach,
+  proofsFor,
 } from "@/lib/scoring";
 import { toggleClaim, removeWorker, toggleFocus, forceCompletion } from "@/app/actions";
 import {
@@ -34,6 +37,8 @@ export function TileSheet({ id }: { id: string }) {
   const app = useApp();
   const { state, me, isLeader, playerById, playerName, completionMeta, closeDrawer, run } = app;
   const confirm = useConfirm();
+  // Above the early return below — hook order must not depend on the id resolving.
+  const [proofOpen, setProofOpen] = useState(false);
   const target = findTarget(id);
   if (!target) return null;
 
@@ -57,6 +62,7 @@ export function TileSheet({ id }: { id: string }) {
       : target.regionName.toUpperCase() + " REGION";
 
   const rules = tileRuleList(id);
+  const proofs = proofsFor(state.proofs, id);
   const contribs = contributors(state.progress, id);
   const iCount = intentCounts(state.intents, id);
 
@@ -107,7 +113,16 @@ export function TileSheet({ id }: { id: string }) {
       : "Nobody on this yet";
 
   return (
-    <SheetShell kindLabel={kindLabel} name={displayName} onClose={closeDrawer}>
+    <SheetShell
+      kindLabel={kindLabel}
+      name={displayName}
+      onClose={closeDrawer}
+      action={
+        isLeader ? (
+          <ProofButton count={proofs.length} onOpen={() => setProofOpen(true)} />
+        ) : undefined
+      }
+    >
       {/* Objective */}
       <div className="border-2 border-border-default bg-parchment p-3 text-[16px] leading-[1.35] text-parchment-ink">
         {target.kind === "bridge" ? bridgeObjective(target) : target.o}
@@ -184,6 +199,10 @@ export function TileSheet({ id }: { id: string }) {
           )}
         </div>
       )}
+
+      {/* Proof — the links a leader attached. Everyone can read them, and it sits
+          outside the isDone block because a leader can attach proof mid-grind. */}
+      <ProofPanel id={id} />
 
       {/* I'm on this */}
       {canDown && (
@@ -396,6 +415,15 @@ export function TileSheet({ id }: { id: string }) {
           </a>
         )}
       </div>
+
+      {proofOpen && (
+        <ProofEditor
+          id={id}
+          name={displayName}
+          rows={proofs}
+          onClose={() => setProofOpen(false)}
+        />
+      )}
     </SheetShell>
   );
 }
