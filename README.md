@@ -38,7 +38,7 @@ components/              client components (tiles, sheets, views, header, provid
 lib/
   board-data.ts         static content, copied verbatim from the design reference
   scoring.ts            ALL game logic as pure functions (unit-tested)
-  scoring.test.ts       34 unit tests
+  scoring.test.ts       unit tests, incl. a pinned goal for every tile and bridge
   data.ts               server-side event-state loader + serializable snapshot
   session.ts            cookie identity + leader-code check (server only)
   types.ts              client-safe shared types
@@ -77,9 +77,11 @@ Rules held to:
    SUPABASE_SERVICE_ROLE_KEY=...        # secret — server only
    LEADER_CODE=some-secret-code         # what the leader types to unlock controls
    ```
-4. Apply the schema: run `supabase/migrations/0001_init.sql` then `supabase/migrations/0002_discord_auth.sql`
-   in the Supabase **SQL editor** (or `supabase db push`). This creates the tables + read-only RLS,
-   enables Realtime, and adds the `players.auth_user_id` link column.
+4. Apply the schema: run `supabase/migrations/0001_init.sql`, then `0002_discord_auth.sql`, then
+   `0004_tile_items.sql` in the Supabase **SQL editor** (or `supabase db push`). These create the
+   tables + read-only RLS, enable Realtime, add the `players.auth_user_id` link column, and add the
+   per-item tick table for checklist tiles. (`0003` deletes a player who left; skip it on a fresh
+   database.)
 5. **Enable Discord auth** (see the Discord setup section below), and add your local + prod URLs under
    **Authentication → URL Configuration** (Site URL + `http://localhost:3000/auth/callback` and
    `https://<your-app>.vercel.app/auth/callback` as Redirect URLs).
@@ -118,15 +120,55 @@ Static board content is in code. These tables hold event state (see the migratio
 
 - `players (id uuid, name unique, is_leader, rares text[], task, auth_user_id unique → auth.users, created_at)`
 - `tile_claims (tile_id, player_id, …)` — "I'm on this"
-- `tile_progress (tile_id, player_id, count ≥ 0, …)` — per-player progress
+- `tile_progress (tile_id, player_id, count ≥ 0, …)` — per-player progress, the authoritative total
+- `tile_items (tile_id, item_key, player_id, …)` — who ticked which part of a checklist tile
+- `tile_notes (tile_id pk, note, …)` — one shared line of text, on the tiles that need a decision
 - `tile_completions (tile_id pk, completed_at, completed_by)` — derived from progress or leader-forced
 - `tile_intents (tile_id, player_id, intent in ('want','ok','no'))` — planning answers
 - `focus (kind in ('region','tile'), target_id)` — leader's team focus
 
-Completion is derived from progress (sum of counts ≥ goal, goal parsed from the objective by
-`lib/scoring.ts`). The `logProgress` server action writes/removes the `tile_completions` row right
-after updating progress, so `completed_at` and the leader's manual override share one home. Dropping
-below the goal (or the leader toggling it off) removes the row.
+### How progress is entered
+
+`progressSpec()` in `lib/scoring.ts` gives every tile one of three shapes, and the drawer dispatches
+on it:
+
+| mode | when | how |
+| --- | --- | --- |
+| `count` | the default | `−` / `+` by one |
+| `checklist` | the tile has `items` in `TILE_TRACKING` | one tick box per named part, each owned by whoever ticked it |
+| `bulk` | goal ≥ 10 | type an amount and press `+` (10,000 astral runes, 500 laps) |
+
+A tile is a checklist only when its parts are individually identifiable **and all of them are
+required** — a full Angler outfit is four named pieces, so it gets four boxes. A tile that just wants
+N pieces stays a counter even when the pieces have names, because any of them will do and duplicates
+often count: "3× Bludgeon Pieces", "2× Oathplate Pieces", "2× any Wilderness Rings".
+
+Two extras hang off `TILE_TRACKING`:
+
+- `alt` — a box that clears the objective on its own, worth the whole goal. It sits under an
+  "…or just one of these" divider and works on counters too: three Masori pieces **or** one Shadow,
+  three fire capes **or** one infernal cape.
+- `note` — one shared free-text line, for boxes that are ambiguous without a decision beside them.
+  Only Me and My Brothers uses it: the four pieces have to be the same brother, so the team records
+  which one.
+
+`tile_progress.count` stays the single source of truth for totals — `tile_items` is attribution
+layered on top, which is why counts logged before item tracking existed still count. Ticking
+recomputes the owner's count from their rows rather than nudging it by a delta, so a double tap on a
+slow connection cannot count twice.
+
+Goals come from `goalOf()`, in order: the number of `items`, the throughput target `i.hr.got`, the
+leading `Nx` in the objective text, then 1. `scoring.test.ts` pins
+the resolved goal of all 81 tiles and 12 bridges, so a reworded objective can't move one silently.
+
+### Completion is sticky
+
+Reaching the goal records a `tile_completions` row; falling back below it never removes one. Only a
+leader un-completes a tile (`forceCompletion` → clears the completion, the counts and the ticks).
+That is what makes raising a tile's goal safe: a tile finished at 1/1 whose goal later became 3 keeps
+its completion, and since region unlock is reachability over completed bridges, one lost completion
+could otherwise re-lock nine tiles. The shared `completionAfter()` is called by both the server action
+and the optimistic client patch so the two cannot disagree.
 
 ## Security model
 
@@ -171,5 +213,11 @@ link) with `players.id = auth.uid()` and per-row RLS — see git history for tha
 ## Out of scope
 
 No image uploads, no Discord integration, no admin CRUD for tiles, no dark/light toggle, no i18n.
-To change board content, edit `lib/board-data.ts` (goals are parsed from the objective text at
-runtime, so nothing to re-seed).
+To change board content, edit `lib/board-data.ts` — nothing to re-seed, because goals are resolved at
+runtime. Two caveats when you do:
+
+- **Renaming a tile changes its id**, since `t()` derives the slug from the name, and every DB row
+  keys off that slug. Rename only with a migration that moves the rows.
+- **Adding a checklist item needs the migration to learn about it too.** `TILE_TRACKING` item keys are
+  primary keys in `tile_items`, and `0004_tile_items.sql` names them all for the backfill.
+  `scoring.test.ts` fails if the two lists disagree.

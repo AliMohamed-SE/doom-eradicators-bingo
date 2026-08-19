@@ -22,6 +22,10 @@ export interface CompletionMeta {
 export interface SerializableState {
   claims: Record<string, string[]>;
   progress: Record<string, Record<string, number>>;
+  /** tileId -> itemKey -> playerId who ticked that checklist box */
+  items: Record<string, Record<string, string>>;
+  /** tileId -> shared free-text note */
+  notes: Record<string, string>;
   doneIds: string[];
   intents: Record<string, Record<string, Intent>>;
   focusRegions: string[];
@@ -44,6 +48,8 @@ export function toEventState(s: SerializableState): EventState {
   return {
     claims: s.claims,
     progress: s.progress,
+    items: s.items,
+    notes: s.notes,
     done: new Set(s.doneIds),
     intents: s.intents,
     focusRegions: s.focusRegions,

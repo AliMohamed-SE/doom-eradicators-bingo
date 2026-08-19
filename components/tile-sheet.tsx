@@ -1,16 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useApp, patchProgress, patchClaim } from "./app-provider";
+import { useApp, patchClaim } from "./app-provider";
 import { useConfirm } from "./confirm";
 import { SheetShell } from "./sheet-shell";
+import { TileProgress } from "./tile-progress";
 import { SKIN } from "./variants";
 import { RARES } from "@/lib/board-data";
 import {
   findTarget,
   tileState,
-  goalOf,
-  progressTotal,
   contributors,
   tileRuleList,
   intentCounts,
@@ -19,13 +18,7 @@ import {
   fmtHrs,
   bridgeApproach,
 } from "@/lib/scoring";
-import {
-  logProgress,
-  toggleClaim,
-  removeWorker,
-  toggleFocus,
-  forceCompletion,
-} from "@/app/actions";
+import { toggleClaim, removeWorker, toggleFocus, forceCompletion } from "@/app/actions";
 import {
   bridgeJoins,
   bridgeHeading,
@@ -51,8 +44,6 @@ export function TileSheet({ id }: { id: string }) {
   const st = tileState(target, state);
   const skin = SKIN[st];
   const isDone = st === "done";
-  const goal = goalOf(target);
-  const prog = progressTotal(state.progress, id);
   const crew = state.claims[id] || [];
   const iAmOn = !!uid && crew.includes(uid);
   const mineCount = state.progress[id]?.[uid] ?? 0;
@@ -169,46 +160,13 @@ export function TileSheet({ id }: { id: string }) {
         <span className="text-[14px] text-ink-dim">{staffLine}</span>
       </div>
 
-      {/* Progress */}
-      <div className="flex flex-wrap items-center gap-[10px] border-2 border-border-default bg-surface-inset p-[10px]">
-        <div className="flex-1 basis-[120px]">
-          <div className="font-mono text-[11px] text-ink-dim">PROGRESS</div>
-          <div className="mt-[5px] font-mono text-[18px] text-yellow">
-            {prog} / {goal}
-          </div>
-        </div>
-        {canProgress && (
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] text-ink-dim2">Your count: {mineCount}</span>
-            <button
-              type="button"
-              onClick={() =>
-                run(() => logProgress(id, -1), uid ? patchProgress(uid, id, -1, goal) : undefined)
-              }
-              className="min-h-[48px] w-[48px] cursor-pointer border-2 border-border-default bg-surface-btn text-[20px] text-ink"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!isDone && prog + 1 >= goal) {
-                  const ok = await confirm({
-                    title: "COMPLETE TILE?",
-                    message: `This logs the last of the goal and marks "${displayName}" done. Are you sure?`,
-                    confirmLabel: "COMPLETE IT",
-                  });
-                  if (!ok) return;
-                }
-                run(() => logProgress(id, 1), uid ? patchProgress(uid, id, 1, goal) : undefined);
-              }}
-              className="min-h-[48px] w-[48px] cursor-pointer border-2 border-amber-border bg-amber-btn text-[20px] text-amber-soft"
-            >
-              +
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Progress — counter, checklist or bulk entry, depending on the objective */}
+      <TileProgress
+        target={target}
+        canProgress={canProgress}
+        isDone={isDone}
+        name={displayName}
+      />
 
       {/* Completion panel */}
       {isDone && (
@@ -335,7 +293,20 @@ export function TileSheet({ id }: { id: string }) {
             </button>
             <button
               type="button"
-              onClick={() => run(() => forceCompletion(id, !isDone))}
+              onClick={async () => {
+                // Undoing wipes the completion, every logged count and every tick.
+                // On a bulk tile that is thousands of units, so it asks first.
+                if (isDone) {
+                  const ok = await confirm({
+                    title: "UNDO DONE?",
+                    message: `This un-completes "${displayName}" and clears everything logged on it. Are you sure?`,
+                    confirmLabel: "UNDO IT",
+                    tone: "danger",
+                  });
+                  if (!ok) return;
+                }
+                run(() => forceCompletion(id, !isDone));
+              }}
               className={cn(
                 "min-h-[46px] cursor-pointer border-2 p-[11px] text-[14px]",
                 isDone

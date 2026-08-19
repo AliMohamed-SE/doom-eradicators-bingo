@@ -8,6 +8,8 @@ const TABLES = [
   "players",
   "tile_claims",
   "tile_progress",
+  "tile_items",
+  "tile_notes",
   "tile_completions",
   "tile_intents",
   "focus",

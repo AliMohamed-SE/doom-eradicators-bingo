@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import type { AppSnapshot, PlayerRow } from "@/lib/types";
 import { toEventState } from "@/lib/types";
+import { completionAfter } from "@/lib/scoring";
 import type { EventState, Intent } from "@/lib/scoring";
 
 type Drawer =
@@ -168,20 +169,23 @@ export function patchIntent(uid: string, tileId: string, intent: Intent | null) 
   };
 }
 
+/**
+ * Mirrors logProgress on the server, including the clamp at both ends and the
+ * sticky completion rule — the shared completionAfter() is why the two cannot
+ * drift into disagreeing about whether a tile is done.
+ */
 export function patchProgress(uid: string, tileId: string, delta: number, goal: number) {
   return (s: AppSnapshot): AppSnapshot => {
     const row = { ...(s.state.progress[tileId] ?? {}) };
-    const next = Math.max(0, (row[uid] ?? 0) + delta);
+    const next = Math.min(goal, Math.max(0, (row[uid] ?? 0) + delta));
     if (next === 0) delete row[uid];
     else row[uid] = next;
     const total = Object.values(row).reduce((a, b) => a + b, 0);
     const doneIds = new Set(s.state.doneIds);
     const claims = { ...s.state.claims };
-    if (total >= goal) {
+    if (completionAfter(doneIds.has(tileId), total, goal)) {
       doneIds.add(tileId);
       delete claims[tileId];
-    } else {
-      doneIds.delete(tileId);
     }
     return {
       ...s,
@@ -191,6 +195,46 @@ export function patchProgress(uid: string, tileId: string, delta: number, goal: 
         doneIds: [...doneIds],
         claims,
       },
+    };
+  };
+}
+
+/** The shared free-text note on a tile. */
+export function patchNote(tileId: string, note: string) {
+  return (s: AppSnapshot): AppSnapshot => {
+    const notes = { ...s.state.notes };
+    if (note) notes[tileId] = note;
+    else delete notes[tileId];
+    return { ...s, state: { ...s.state, notes } };
+  };
+}
+
+/**
+ * Ticking or unticking one checklist box. Layered on patchProgress so the
+ * completion rule lives in exactly one place.
+ *
+ * `ownerUid` is whose count moves, which is NOT the caller when a leader clears
+ * somebody else's tick. `weight` is 1 for a normal item and the whole goal for an
+ * `alt` box. This patch is not optional: run() only feels instant because of it,
+ * and with no tap-highlight in this skin an un-patched tick looks broken and gets
+ * double-tapped.
+ */
+export function patchItem(
+  ownerUid: string,
+  tileId: string,
+  itemKey: string,
+  on: boolean,
+  weight: number,
+  goal: number,
+) {
+  return (s: AppSnapshot): AppSnapshot => {
+    const base = patchProgress(ownerUid, tileId, on ? weight : -weight, goal)(s);
+    const row = { ...(base.state.items[tileId] ?? {}) };
+    if (on) row[itemKey] = ownerUid;
+    else delete row[itemKey];
+    return {
+      ...base,
+      state: { ...base.state, items: { ...base.state.items, [tileId]: row } },
     };
   };
 }

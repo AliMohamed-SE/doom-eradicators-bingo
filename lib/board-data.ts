@@ -104,6 +104,52 @@ export interface RuleSection {
   items: RuleItem[];
 }
 
+export interface ItemDef {
+  /**
+   * Stable key. This is half of a DATABASE PRIMARY KEY (tile_items.item_key), so
+   * it is hand-written and permanent — never derive it from `n`, and never rename
+   * one without a migration. See the `t()` helper below for the cautionary tale.
+   */
+  k: string;
+  /** label shown on the tick box */
+  n: string;
+}
+
+/**
+ * How a target's progress is entered, when the default ±1 counter is the wrong
+ * shape for the objective. Keyed by tile/bridge id in TILE_TRACKING below.
+ */
+export interface NoteField {
+  /** short caps label above the box */
+  label: string;
+  placeholder?: string;
+}
+
+export interface TileTracking {
+  /**
+   * Distinct named items, one tick box each — and all of them are required, so this
+   * is also the tile's goal. Presence means "checklist tile".
+   *
+   * Only for objectives whose parts are individually identifiable. A tile that just
+   * wants N pieces stays a counter: "3x Bludgeon Pieces" or "2x any Wilderness
+   * Rings" (duplicates allowed) is a number, and ticking named boxes would imply a
+   * precision the rules don't have.
+   */
+  items?: ItemDef[];
+  /**
+   * A shared free-text box on the tile. Only for objectives where the boxes are
+   * meaningless without a decision recorded alongside them — a Barrows set has to
+   * be four pieces of ONE brother, and which brother is a team choice.
+   */
+  note?: NoteField;
+  /**
+   * Any ONE of these clears the whole objective on its own — the "or a Shadow"
+   * half of a two-route tile. Ticking one credits the full goal. Works on plain
+   * counter tiles too, where the countable items are indistinguishable.
+   */
+  alt?: ItemDef[];
+}
+
 const t = (n: string, o: string, extra: Partial<Tile> = {}): Tile =>
   Object.assign(
     { id: n.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""), n, o },
@@ -516,6 +562,82 @@ export const TILE_RULES: Record<string, string[]> = {
   sol_creditt: ["Gear value challenge: your loot must be put into the value options shown in the rules."],
   the_416_special: ["Gear value challenge: your loot must be put into the value options shown in the rules."],
   corporeal_challenge: ["Gear value challenge: your loot must be put into the value options shown in the rules."]
+};
+
+/**
+ * Tiles whose objective is a SET of distinct named things rather than N of one
+ * thing. Each entry becomes a tick box in the drawer, owned by whoever ticked it,
+ * and the tile's goal comes from here instead of the "Nx" in the objective text.
+ *
+ * A tile belongs here only when the parts are individually identifiable — "3x
+ * Black Masks" is three of the same mask and stays a counter, but "3x Bludgeon
+ * Pieces" is a claw, a spine and an axon. Open-ended sets stay counters too
+ * (godwars_general, blood_moon_rises, korasi_killer), because a box that means
+ * "some drop from this boss" tells you less than the number does.
+ *
+ * Item labels are the in-game item names so a tick is unambiguous. The keys are
+ * database primary keys — see ItemDef.
+ */
+export const TILE_TRACKING: Record<string, TileTracking> = {
+  // --- every named part required, and the parts are individually identifiable ---
+  clifford_s_revenge: { items: [
+    { k: "primordial", n: "Primordial crystal" },
+    { k: "pegasian", n: "Pegasian crystal" },
+    { k: "eternal", n: "Eternal crystal" },
+  ]},
+  evil_ass_task: { items: [
+    { k: "hat", n: "Angler hat" },
+    { k: "top", n: "Angler top" },
+    { k: "waders", n: "Angler waders" },
+    { k: "boots", n: "Angler boots" },
+  ]},
+  respect_your_elders: { items: [
+    { k: "hood", n: "Elder chaos hood" },
+    { k: "top", n: "Elder chaos top" },
+    { k: "robe", n: "Elder chaos robe" },
+  ]},
+  // Four slots, and they must all be the SAME brother — hence the note box. The
+  // labels stay generic because the note says whose set it is.
+  me_and_my_brothers: {
+    note: { label: "WHICH SET", placeholder: "Dharok, Karil, Ahrim…" },
+    items: [
+      { k: "helm", n: "Helm / hood / coif" },
+      { k: "body", n: "Body / top" },
+      { k: "legs", n: "Legs / skirt" },
+      { k: "weapon", n: "Weapon" },
+    ],
+  },
+  // Three components, not four: the tile rule says a light OR heavy frame works,
+  // and a light ballista is limbs + spring + light frame with no monkey tail.
+  monkey_business_3: { items: [
+    { k: "limbs", n: "Ballista limbs" },
+    { k: "spring", n: "Ballista spring" },
+    { k: "frame", n: "Light or heavy frame" },
+  ]},
+  wardn_t_you_believe_it: { items: [
+    { k: "shard_1", n: "Shard 1 — Chaos Fanatic" },
+    { k: "shard_2", n: "Shard 2 — Crazy archaeologist" },
+    { k: "shard_3", n: "Shard 3 — Scorpia" },
+  ]},
+  // Just the two crowns. The battlestaff is a shop item, not part of the grind.
+  cold_and_spicy: { items: [
+    { k: "fire_crown", n: "Fire element staff crown — Branda" },
+    { k: "ice_crown", n: "Ice element staff crown — Eldric" },
+  ]},
+  lord_of_the_rings: { items: [
+    { k: "berserker", n: "Berserker ring" },
+    { k: "archer", n: "Archer ring" },
+    { k: "warrior", n: "Warrior ring" },
+    { k: "seers", n: "Seers ring" },
+  ]},
+
+  // --- counters with a second, much shorter route ---
+  // These stay counters because any N of the pieces will do, duplicates included —
+  // there is nothing to identify. The alt box is the other way to finish: one of
+  // these on its own clears the whole tile.
+  masori_chaps_mia: { alt: [{ k: "shadow", n: "Tumeken's shadow" }] },
+  justmi: { alt: [{ k: "scythe", n: "Scythe of Vitur" }] },
+  bridge_cheese_and_fire: { alt: [{ k: "infernal", n: "Infernal cape" }] },
 };
 
 export const FREE_SPACE = "free_space";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "./app-provider";
-import { findTarget, goalOf, progressTotal } from "@/lib/scoring";
+import { findTarget, goalOf, progressTotal, fmtCompact } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
 
 interface Row {
@@ -42,7 +42,7 @@ export function ContribView() {
           region: t.kind === "bridge" ? "Bridge" : t.regionName,
           mine,
           total,
-          goal: goalOf({ o: t.o }),
+          goal: goalOf(t),
           done,
           solo: isSolo,
         });
@@ -98,9 +98,9 @@ export function ContribView() {
                       <span className="block text-[11px] text-ink-dim">{t.region}</span>
                     </span>
                     <span className="font-mono text-[13px] text-yellow">
-                      {t.mine}
+                      {fmtCompact(t.mine)}
                       <span className="text-ink-dim">
-                        /{t.done ? t.total : t.goal}
+                        /{fmtCompact(t.done ? t.total : t.goal)}
                       </span>
                     </span>
                     <span

@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { REGIONS, BRIDGES, FREE_SPACE } from "./board-data";
+import { readFileSync } from "node:fs";
+import { REGIONS, BRIDGES, FREE_SPACE, TILE_TRACKING } from "./board-data";
 import {
   goalOf,
+  progressSpec,
+  completionAfter,
+  assignLegacyItems,
+  tickCredit,
+  itemOwners,
+  allTiles,
+  fmtCompact,
   progressTotal,
   contributors,
   reachesGoal,
@@ -43,6 +51,8 @@ const target = (id: string): Target => {
 const emptyState = (over: Partial<EventState> = {}): EventState => ({
   claims: {},
   progress: {},
+  items: {},
+  notes: {},
   done: new Set<string>(),
   intents: {},
   focusRegions: [],
@@ -51,15 +61,366 @@ const emptyState = (over: Partial<EventState> = {}): EventState => ({
 });
 
 describe("goalOf", () => {
-  it("reads the leading Nx number", () => {
+  it("reads the leading Nx number when nothing overrides it", () => {
     expect(goalOf({ o: "Get 3x Masori from TOA" })).toBe(3);
     expect(goalOf({ o: "Get 10x Chewed Bones" })).toBe(10);
     expect(goalOf({ o: "Complete 50x Hunter Rumours" })).toBe(50);
   });
   it("defaults to 1 when there is no Nx", () => {
     expect(goalOf({ o: "Get a Beef pet" })).toBe(1);
-    expect(goalOf({ o: "Craft 10k Astral Runes (no extracts)" })).toBe(1);
-    expect(goalOf({ o: "Complete 500 Monkey Laps" })).toBe(1);
+  });
+
+  it("counts the named items, whatever the prose says", () => {
+    // "Get each Cerberus boot crystal" parses to 1; there are three crystals.
+    expect(goalOf(target("clifford_s_revenge"))).toBe(3);
+    expect(goalOf(target("evil_ass_task"))).toBe(4);
+    // The prose says "Complete 1x Full Barrows Set" and means four pieces.
+    expect(goalOf(target("me_and_my_brothers"))).toBe(4);
+    // Two crowns; the battlestaff is a shop item, not part of the grind.
+    expect(goalOf(target("cold_and_spicy"))).toBe(2);
+  });
+
+  it("leaves the prose alone for tiles that just want N of something", () => {
+    // Any pieces will do on these, so the number in the objective is the goal and
+    // there is nothing to tick.
+    expect(goalOf(target("abyssal_cryer"))).toBe(3);
+    expect(goalOf(target("teletubby_sun"))).toBe(3);
+    expect(goalOf(target("yamama"))).toBe(2);
+    expect(goalOf(target("i_hate_the_wildy"))).toBe(2);
+    expect(goalOf(target("rip_wetfrog"))).toBe(3);
+    expect(goalOf(target("araxxxxxxxxor"))).toBe(3);
+    // Plug Prepper is one finished wand, not four rooms of progress.
+    expect(goalOf(target("plug_prepper"))).toBe(1);
+  });
+
+  it("takes the throughput target over the prose", () => {
+    expect(goalOf(target("astral_projection"))).toBe(10000);
+    expect(goalOf(target("monkey_business"))).toBe(500);
+  });
+
+  it("does not count alt boxes toward the goal", () => {
+    // Three Masori pieces, or one Shadow — still a goal of 3.
+    expect(goalOf(target("masori_chaps_mia"))).toBe(3);
+    // Three indistinguishable fire capes, with an infernal cape as the alt.
+    expect(goalOf(target("bridge_cheese_and_fire"))).toBe(3);
+  });
+
+  /*
+   * The guard that would have caught commit 96de884, which changed Lord of the
+   * Rings from "Get all unique DK rings" to "Get 4x unique DK rings" and silently
+   * moved its goal from 1 to 4 in production. Any prose edit that shifts a goal now
+   * fails here instead of quietly re-deriving completion on the live board.
+   */
+  it("pins every target's goal so a content edit cannot move one silently", () => {
+    const goals: Record<string, number> = {};
+    for (const t of allTiles()) goals[t.id] = goalOf(t);
+    for (const b of BRIDGES) goals[b.id] = goalOf(b);
+    expect(goals).toEqual({
+      return_the_sceptre: 2,
+      kq_pee_yew: 1,
+      thread_the_needle: 1,
+      my_snake_is_bigger: 1,
+      budget_150_s: 1,
+      plug_prepper: 1,
+      masori_chaps_mia: 3,
+      temp_tome_time: 1,
+      three_finger_death_punch: 3,
+      saint_shard: 1,
+      brine_time: 3,
+      turn_to_stone: 1,
+      axe_enthusiast: 5,
+      vorkath_veteran: 1,
+      duke_destroyer: 1,
+      astral_projection: 10000,
+      lord_of_the_rings: 4,
+      return_of_the_money_dragon: 1,
+      eye_of_the_occult: 1,
+      monkey_business_3: 3,
+      curved_to_the_left: 1,
+      kraken_me_up: 5,
+      i_m_huffin_that_shit: 1,
+      monkey_business: 500,
+      monkey_business_2: 2,
+      evil_ass_task: 4,
+      just_a_nibble: 10,
+      dread_it_run_from_it: 1,
+      the_cm_experience: 1,
+      the_cold_of_the_todt: 1,
+      yamama: 2,
+      big_cox: 1,
+      where_s_your_maul: 1,
+      eeeeek: 1,
+      to_all_the_irons: 1,
+      missing_my_top: 1,
+      we_have_the_beef: 1,
+      the_nex_tile: 1,
+      clifford_s_revenge: 3,
+      whispered: 1,
+      free_space: 1,
+      rune_reaper: 1,
+      godwars_general: 3,
+      abyssal_cryer: 3,
+      cold_and_spicy: 2,
+      bleed_me_dry: 1,
+      temu_salamander: 1,
+      blood_moon_rises: 4,
+      teletubby_sun: 3,
+      sol_creditt: 1,
+      i_ve_heard_something: 50,
+      temolties: 1,
+      the_magic_wand: 1,
+      rip_wetfrog: 3,
+      justmi: 3,
+      its_bis_now: 1,
+      agility_time: 1,
+      me_and_my_brothers: 4,
+      the_416_special: 1,
+      bloody_bad_time: 4,
+      my_personal_nightmare: 1,
+      araxxxxxxxxor: 3,
+      masks_off: 3,
+      i_m_hooked: 2,
+      i_m_blasted: 2,
+      rock_solid: 1,
+      paint_me: 1,
+      jubbly_master: 1,
+      tore_a_tendon: 1,
+      gryphon_gryphoff: 1,
+      piece_of_sheet: 10,
+      its_was_this_big: 1,
+      killing_the_ghosts: 1,
+      wardn_t_you_believe_it: 3,
+      chaos_chaos: 1,
+      respect_your_elders: 3,
+      corporeal_challenge: 1,
+      i_hate_the_wildy: 2,
+      korasi_killer: 1,
+      pick_me: 2,
+      upgrade: 1,
+      bridge_lil_champion: 1,
+      bridge_big_champion: 1,
+      bridge_obsidian_breaker: 1,
+      bridge_traditional_start: 1,
+      bridge_maggot_monarch: 1,
+      bridge_m_lady: 1,
+      bridge_rangers_when: 1,
+      bridge_south_west_unknown: 1,
+      bridge_cheese_and_fire: 3,
+      bridge_we_love_them: 1,
+      bridge_south_unknown: 1,
+      bridge_deep_south_unknown: 1,
+    });
+  });
+});
+
+describe("progressSpec", () => {
+  it("picks checklist when the objective names its parts", () => {
+    const s = progressSpec(target("clifford_s_revenge"));
+    expect(s.mode).toBe("checklist");
+    expect(s.items.map((i) => i.k)).toEqual(["primordial", "pegasian", "eternal"]);
+  });
+
+  it("picks bulk for anything worth typing a number into", () => {
+    expect(progressSpec(target("astral_projection"))).toMatchObject({
+      mode: "bulk",
+      goal: 10000,
+      unit: "astral runes",
+      quick: [100, 1000],
+    });
+    expect(progressSpec(target("monkey_business"))).toMatchObject({ mode: "bulk", quick: [10, 50] });
+    // 10 is the threshold, so these tip over into bulk too
+    expect(progressSpec(target("just_a_nibble"))).toMatchObject({ mode: "bulk", goal: 10 });
+    expect(progressSpec(target("piece_of_sheet")).mode).toBe("bulk");
+  });
+
+  it("leaves N-of-the-same-thing tiles as plain counters", () => {
+    expect(progressSpec(target("masks_off")).mode).toBe("count");
+    expect(progressSpec(target("axe_enthusiast")).mode).toBe("count");
+    expect(progressSpec(target("blood_moon_rises")).mode).toBe("count");
+    expect(progressSpec(target(FREE_SPACE)).mode).toBe("count");
+  });
+
+  it("keeps every N-pieces tile a counter, alt box or not", () => {
+    for (const id of [
+      "abyssal_cryer",
+      "teletubby_sun",
+      "yamama",
+      "i_hate_the_wildy",
+      "rip_wetfrog",
+      "araxxxxxxxxor",
+      "plug_prepper",
+      "masori_chaps_mia",
+      "justmi",
+    ]) {
+      expect(progressSpec(target(id)).mode, id).toBe("count");
+    }
+  });
+
+  it("carries an alt box on a counter tile", () => {
+    // Three fire capes are indistinguishable, so the tile counts — but one
+    // infernal cape finishes it outright.
+    const cape = progressSpec(target("bridge_cheese_and_fire"));
+    expect(cape.mode).toBe("count");
+    expect(cape.goal).toBe(3);
+    expect(cape.alt.map((a) => a.k)).toEqual(["infernal"]);
+    // Same shape: 3 Masori pieces, or one Shadow.
+    expect(progressSpec(target("masori_chaps_mia")).alt.map((a) => a.k)).toEqual(["shadow"]);
+    expect(progressSpec(target("justmi")).alt.map((a) => a.k)).toEqual(["scythe"]);
+  });
+
+  it("asks for a shared note only where the boxes need one", () => {
+    // Four Barrows pieces mean nothing unless everyone agrees which brother.
+    expect(progressSpec(target("me_and_my_brothers")).note?.label).toBe("WHICH SET");
+    expect(progressSpec(target("clifford_s_revenge")).note).toBeNull();
+    expect(progressSpec(target("masks_off")).note).toBeNull();
+  });
+});
+
+/*
+ * TILE_TRACKING is hand-written and its keys are database primary keys, so this is
+ * where a typo has to be caught — a bad tile id renders nothing and a bad item key
+ * writes a row nothing can clear.
+ */
+describe("TILE_TRACKING integrity", () => {
+  it("keys a real target every time", () => {
+    for (const id of Object.keys(TILE_TRACKING)) {
+      expect(findTarget(id), `no target ${id}`).not.toBeNull();
+    }
+  });
+
+  it("uses safe, unique item keys within each target", () => {
+    for (const [id, track] of Object.entries(TILE_TRACKING)) {
+      const keys = [...(track.items ?? []), ...(track.alt ?? [])].map((i) => i.k);
+      expect(keys.length, `${id} has no boxes at all`).toBeGreaterThan(0);
+      for (const k of keys) expect(k, `${id}.${k}`).toMatch(/^[a-z0-9_]+$/);
+      expect(new Set(keys).size, `${id} repeats an item key`).toBe(keys.length);
+    }
+  });
+
+  it("gives every checklist tile at least two boxes", () => {
+    // One box would just be a 0/1 counter wearing a tick.
+    for (const [id, track] of Object.entries(TILE_TRACKING)) {
+      if (!track.items) continue;
+      expect(track.items.length, `${id} has too few items`).toBeGreaterThan(1);
+    }
+  });
+
+  it("leaves the free space alone", () => {
+    expect(TILE_TRACKING[FREE_SPACE]).toBeUndefined();
+  });
+});
+
+describe("completionAfter", () => {
+  it("completes on reaching the goal", () => {
+    expect(completionAfter(false, 3, 3)).toBe(true);
+    expect(completionAfter(false, 2, 3)).toBe(false);
+  });
+
+  it("keeps a completion recorded at an older, lower goal", () => {
+    // The migration case: finished at 1/1, goal later raised to 4. Un-completing
+    // here would delete a bridge prereq and re-lock a whole region.
+    expect(completionAfter(true, 1, 4)).toBe(true);
+    expect(completionAfter(true, 0, 10000)).toBe(true);
+  });
+});
+
+describe("checklist items", () => {
+  const masori = target("masori_chaps_mia");
+
+  it("reads owners for a target and nothing for an untouched one", () => {
+    const items = { masori_chaps_mia: { mask: "a", body: "b" } };
+    expect(itemOwners(items, "masori_chaps_mia")).toEqual({ mask: "a", body: "b" });
+    expect(itemOwners(items, "clifford_s_revenge")).toEqual({});
+  });
+
+  it("credits one per item and the whole goal for an alt", () => {
+    expect(tickCredit(masori, { mask: "a", body: "a", chaps: "b" }, "a")).toBe(2);
+    expect(tickCredit(masori, { shadow: "a" }, "a")).toBe(3);
+    // an alt plus a piece still resolves, it just overshoots
+    expect(tickCredit(masori, { shadow: "a", mask: "a" }, "a")).toBe(4);
+    expect(tickCredit(masori, { mask: "b" }, "a")).toBe(0);
+  });
+
+  it("credits everyone's ticks when no player is named", () => {
+    expect(tickCredit(masori, { mask: "a", body: "b", chaps: "c" })).toBe(3);
+    expect(tickCredit(masori, {})).toBe(0);
+  });
+});
+
+/*
+ * The 0004 migration has to name every item key and goal in SQL, because it has to
+ * resolve player ids at run time — so the same facts exist twice. Rather than
+ * generate the SQL (and have the generator rot), assert the two agree. This is the
+ * guard that catches an item added to TILE_TRACKING without the backfill learning
+ * about it.
+ */
+describe("migration 0004 agrees with the code", () => {
+  const sql = readFileSync(
+    new URL("../supabase/migrations/0004_tile_items.sql", import.meta.url),
+    "utf8",
+  );
+  const block = (header: string) => {
+    const start = sql.indexOf(header);
+    expect(start, `missing "${header}" in 0004`).toBeGreaterThan(-1);
+    const end = sql.indexOf("\n)", start);
+    return sql.slice(start, end);
+  };
+
+  it("tops up exactly the targets whose goal is not in their objective text", () => {
+    const rows = [...block("with goals(tile_id, goal) as (values").matchAll(
+      /\('([a-z0-9_]+)',\s*(\d+)\)/g,
+    )];
+    const inSql = Object.fromEntries(rows.map((m) => [m[1], Number(m[2])]));
+
+    const expected: Record<string, number> = {};
+    for (const t of [...allTiles(), ...BRIDGES]) {
+      if (TILE_TRACKING[t.id] || t.i?.hr) expected[t.id] = goalOf(t);
+    }
+    expect(inSql).toEqual(expected);
+  });
+
+  it("backfills every checklist box, in declaration order", () => {
+    const rows = [...block("with keys(tile_id, ord, item_key) as (values").matchAll(
+      /\('([a-z0-9_]+)',\s*(\d+),\s*'([a-z0-9_]+)'\)/g,
+    )];
+    const inSql = rows.map((m) => `${m[1]}:${m[2]}:${m[3]}`);
+
+    // `alt` boxes are deliberately absent: a legacy count of 3 on Masori could have
+    // been three pieces or one Shadow, and the three pieces are the honest guess.
+    const expected: string[] = [];
+    for (const [id, track] of Object.entries(TILE_TRACKING)) {
+      (track.items ?? []).forEach((item, i) => expected.push(`${id}:${i + 1}:${item.k}`));
+    }
+    expect(inSql.slice().sort()).toEqual(expected.slice().sort());
+  });
+});
+
+describe("assignLegacyItems", () => {
+  const keys = ["primordial", "pegasian", "eternal"];
+
+  it("gives one contributor as many boxes as they logged", () => {
+    expect(assignLegacyItems([{ playerId: "a", count: 2 }], keys)).toEqual([
+      { itemKey: "primordial", playerId: "a" },
+      { itemKey: "pegasian", playerId: "a" },
+    ]);
+  });
+
+  it("shares them out biggest-first, in declaration order", () => {
+    expect(
+      assignLegacyItems([{ playerId: "a", count: 2 }, { playerId: "b", count: 1 }], keys),
+    ).toEqual([
+      { itemKey: "primordial", playerId: "a" },
+      { itemKey: "pegasian", playerId: "a" },
+      { itemKey: "eternal", playerId: "b" },
+    ]);
+  });
+
+  it("stops at the last box when the old count overshoots", () => {
+    expect(assignLegacyItems([{ playerId: "a", count: 5 }], keys)).toHaveLength(3);
+  });
+
+  it("does nothing with no contributors", () => {
+    expect(assignLegacyItems([], keys)).toEqual([]);
   });
 });
 
@@ -402,6 +763,14 @@ describe("fmt helpers", () => {
   it("fmtNum groups thousands", () => {
     expect(fmtNum(1000)).toBe("1,000");
     expect(fmtNum(63.5)).toBe("64");
+  });
+  it("fmtCompact shortens the big bulk counts for a board cell", () => {
+    expect(fmtCompact(0)).toBe("0");
+    expect(fmtCompact(999)).toBe("999");
+    expect(fmtCompact(1000)).toBe("1k");
+    expect(fmtCompact(4000)).toBe("4k");
+    expect(fmtCompact(1500)).toBe("1.5k");
+    expect(fmtCompact(10000)).toBe("10k");
   });
   it("fmtHrs buckets by magnitude", () => {
     expect(fmtHrs(0)).toBe("—");

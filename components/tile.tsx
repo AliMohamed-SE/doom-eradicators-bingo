@@ -2,7 +2,14 @@
 
 import { useApp } from "./app-provider";
 import { SKIN } from "./variants";
-import { tileState, goalOf, progressTotal, tileRuleList, type TileTarget } from "@/lib/scoring";
+import {
+  tileState,
+  goalOf,
+  progressTotal,
+  fmtCompact,
+  tileRuleList,
+  type TileTarget,
+} from "@/lib/scoring";
 import { FREE_SPACE } from "@/lib/board-data";
 import { cn } from "@/lib/cn";
 
@@ -17,7 +24,9 @@ export function Tile({ target, variant }: { target: TileTarget; variant: "phone"
   const goal = goalOf(target);
   const prog = progressTotal(state.progress, target.id);
   const hasRules = tileRuleList(target.id).length > 0;
-  const count = st === "done" || st === "locked" ? "" : `${prog}/${goal}`;
+  // Compact, because a bulk tile's "4000/10000" does not fit a desktop cell at 10px.
+  const count =
+    st === "done" || st === "locked" ? "" : `${fmtCompact(prog)}/${fmtCompact(goal)}`;
 
   if (isFree) {
     return (

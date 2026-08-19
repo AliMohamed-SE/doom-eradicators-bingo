@@ -12,11 +12,15 @@ import {
   REGIONS,
   BRIDGES,
   TILE_RULES,
+  TILE_TRACKING,
   FREE_SPACE,
   type Region,
   type Bridge,
   type Tile,
   type OsrsInfo,
+  type ItemDef,
+  type NoteField,
+  type TileTracking,
   type Confidence,
 } from "./board-data";
 
@@ -29,6 +33,14 @@ export interface EventState {
   claims: Record<string, string[]>;
   /** tileId -> playerId -> progress count */
   progress: Record<string, Record<string, number>>;
+  /**
+   * tileId -> itemKey -> playerId who ticked it. Only checklist tiles (and the
+   * `alt` boxes) have entries. This is attribution ONLY — `progress` stays the
+   * authoritative total, so legacy rows logged before item tracking still count.
+   */
+  items: Record<string, Record<string, string>>;
+  /** tileId -> the shared free-text note on that tile, for the few that have one */
+  notes: Record<string, string>;
   /** completed tile/bridge ids (free_space is implicitly done, need not be present) */
   done: ReadonlySet<string>;
   /** tileId -> playerId -> intent */
@@ -345,10 +357,83 @@ export function tileState(
 // Goals & progress
 // ---------------------------------------------------------------------------
 
-/** goal = the leading "Nx" number in the objective text, else 1. */
-export function goalOf(tile: Pick<Tile, "o">): number {
+/** The tracking override for a target, if it has one. */
+export function trackingOf(id: string | undefined): TileTracking | undefined {
+  return id ? TILE_TRACKING[id] : undefined;
+}
+
+/** The tick boxes for a checklist target; empty for a plain counter. */
+export function itemsOf(target: { id?: string } | null | undefined): readonly ItemDef[] {
+  return trackingOf(target?.id)?.items ?? [];
+}
+
+/** Boxes that clear the whole objective on their own; usually empty. */
+export function altOf(target: { id?: string } | null | undefined): readonly ItemDef[] {
+  return trackingOf(target?.id)?.alt ?? [];
+}
+
+/**
+ * How many of the thing the target asks for, in order of authority:
+ *   1. TILE_TRACKING.items      — one per named part, all required
+ *   2. i.hr.got                 — the throughput objectives (10k runes, 500 laps)
+ *   3. the leading "Nx" in the objective text
+ *   4. 1
+ *
+ * Callers must pass the whole target, not just `{ o }` — the goal has not come
+ * from the prose alone since checklist and bulk tiles existed.
+ */
+export function goalOf(tile: Pick<Tile, "o"> & { id?: string; i?: OsrsInfo }): number {
+  const items = trackingOf(tile.id)?.items;
+  if (items?.length) return items.length;
+  if (tile.i?.hr) return tile.i.hr.got;
   const m = /(\d+)\s*x/i.exec(tile.o || "");
   return m ? parseInt(m[1], 10) : 1;
+}
+
+/**
+ * Above this goal, clicking +1 to the finish is absurd, so the drawer offers a
+ * "type how many you did" box instead. 10 is the smallest goal on the board that
+ * anyone would want to enter in one go.
+ */
+export const BULK_THRESHOLD = 10;
+
+export type ProgressMode = "count" | "checklist" | "bulk";
+
+export interface ProgressSpec {
+  mode: ProgressMode;
+  goal: number;
+  items: readonly ItemDef[];
+  alt: readonly ItemDef[];
+  /** unit word for the bulk readout ("laps"), "" when there isn't one */
+  unit: string;
+  /** the shared free-text box this target asks for, if any */
+  note: NoteField | null;
+  /** one-tap increments offered in bulk mode */
+  quick: readonly number[];
+}
+
+/**
+ * The single place that decides how a target's progress is entered. Components
+ * must not sniff TILE_TRACKING or i.hr themselves.
+ */
+export function progressSpec(target: Target | Tile | Bridge): ProgressSpec {
+  const t = target as { id?: string; o?: string; i?: OsrsInfo };
+  const goal = goalOf({ o: t.o ?? "", id: t.id, i: t.i });
+  const items = itemsOf(t);
+  const mode: ProgressMode = items.length
+    ? "checklist"
+    : goal >= BULK_THRESHOLD
+      ? "bulk"
+      : "count";
+  return {
+    mode,
+    goal,
+    items,
+    alt: altOf(t),
+    note: trackingOf(t.id)?.note ?? null,
+    unit: t.i?.hr?.u ?? "",
+    quick: goal >= 1000 ? [100, 1000] : goal >= 100 ? [10, 50] : [1, 5],
+  };
 }
 
 export function progressTotal(progress: EventState["progress"], id: string): number {
@@ -373,6 +458,85 @@ export function contributors(progress: EventState["progress"], id: string): Cont
 /** Whether a progress total reaches the tile's goal (auto-completion rule). */
 export function reachesGoal(total: number, goal: number): boolean {
   return total >= goal;
+}
+
+/**
+ * Whether a target is done after a progress write — the ONE completion rule,
+ * shared by the server action and the optimistic client patch so the two cannot
+ * drift.
+ *
+ * Completion is STICKY: reaching the goal records it, but falling back below the
+ * goal never un-records it. That is what makes raising a tile's goal safe. Before
+ * this rule existed, a tile finished at 1/1 whose goal later became 3 lost its
+ * completion the next time anyone touched it — and since region unlocking is
+ * reachability over completed bridges, losing one completion could re-lock nine
+ * tiles. Un-completing is a leader action (forceCompletion -> clearTile), never a
+ * side effect. It also closes a race: two players writing at once could both
+ * re-sum stale totals, one inserting the completion and the other deleting it.
+ */
+export function completionAfter(alreadyDone: boolean, total: number, goal: number): boolean {
+  return alreadyDone || reachesGoal(total, goal);
+}
+
+// ---------------------------------------------------------------------------
+// Checklist items
+// ---------------------------------------------------------------------------
+
+/** itemKey -> playerId for one target. */
+export function itemOwners(
+  items: EventState["items"],
+  id: string,
+): Record<string, string> {
+  return items[id] || {};
+}
+
+/**
+ * What ticks are worth against the goal — all of them, or one player's when
+ * `playerId` is given. An `alt` tick is worth the whole goal, which is how "or a
+ * Shadow" beats three Masori pieces without giving individual boxes weights;
+ * weights would quietly redefine what a "count" means in the crew list and in the
+ * contributions ranking.
+ *
+ * The one place this rule lives — the server recomputes counts with it, the drawer
+ * decides which boxes are still live with it.
+ */
+export function tickCredit(
+  target: { id?: string; o?: string; i?: OsrsInfo },
+  owners: Record<string, string>,
+  playerId?: string,
+): number {
+  const goal = goalOf({ o: target.o ?? "", id: target.id, i: target.i });
+  const altKeys = new Set(altOf(target).map((a) => a.k));
+  let credit = 0;
+  for (const [key, owner] of Object.entries(owners)) {
+    if (playerId !== undefined && owner !== playerId) continue;
+    credit += altKeys.has(key) ? goal : 1;
+  }
+  return credit;
+}
+
+/**
+ * How legacy progress becomes tick boxes: walk the contributors biggest-first and
+ * hand each one the next `count` keys in declaration order. A tile finished at
+ * 4/4 before item tracking existed comes out with all four boxes ticked and
+ * attributed to the people who actually logged it; a half-done tile comes out
+ * with that many ticked, which someone can then reassign by hand.
+ *
+ * Mirrored by the backfill in supabase/migrations/0004_tile_items.sql — the two
+ * must agree, so keep both to this one rule.
+ */
+export function assignLegacyItems(
+  contribs: readonly Contributor[],
+  itemKeys: readonly string[],
+): { itemKey: string; playerId: string }[] {
+  const out: { itemKey: string; playerId: string }[] = [];
+  let i = 0;
+  for (const c of contribs) {
+    for (let n = 0; n < c.count && i < itemKeys.length; n++, i++) {
+      out.push({ itemKey: itemKeys[i], playerId: c.playerId });
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -523,6 +687,16 @@ export function intentBar(intents: EventState["intents"], id: string): IntentBar
 
 export function fmtNum(n: number): string {
   return Math.round(n).toLocaleString("en-US");
+}
+
+/**
+ * Short count for the board cells, where "4000/10000" does not fit at 10px.
+ * 4k, 1.5k, 10k. The drawer has room for the exact number, so it uses fmtNum.
+ */
+export function fmtCompact(n: number): string {
+  if (n < 1000) return String(Math.round(n));
+  const k = n / 1000;
+  return (k < 10 ? Math.round(k * 10) / 10 : Math.round(k)) + "k";
 }
 
 export function fmtHrs(h: number | null | undefined): string {

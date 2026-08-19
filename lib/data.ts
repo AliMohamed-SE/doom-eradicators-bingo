@@ -36,14 +36,26 @@ export async function loadAppData(): Promise<AppData> {
   const supabase = admin();
   const [user, codeOk] = await Promise.all([getAuthUser(), hasLeaderCode()]);
 
-  const [players, claims, progress, completions, intents, focus] = await Promise.all([
+  const [players, claims, progress, items, notes, completions, intents, focus] = await Promise.all([
     supabase.from("players").select("id, name, is_leader, rares, task, auth_user_id").order("name"),
     supabase.from("tile_claims").select("tile_id, player_id"),
     supabase.from("tile_progress").select("tile_id, player_id, count"),
+    supabase.from("tile_items").select("tile_id, item_key, player_id"),
+    supabase.from("tile_notes").select("tile_id, note"),
     supabase.from("tile_completions").select("tile_id, completed_at, completed_by"),
     supabase.from("tile_intents").select("tile_id, player_id, intent"),
     supabase.from("focus").select("kind, target_id"),
   ]);
+
+  // supabase-js resolves rather than throws, so a missing table reads exactly like
+  // an empty one. Say so out loud — "0004 has not been applied" and "nobody has
+  // ticked anything" look identical on the board otherwise.
+  if (items.error || notes.error) {
+    console.error(
+      "tile_items / tile_notes read failed (is migration 0004 applied?):",
+      items.error?.message ?? notes.error?.message,
+    );
+  }
 
   const rawPlayers = players.data ?? [];
   const playerRows: PlayerRow[] = rawPlayers.map((p) => ({
@@ -68,6 +80,16 @@ export async function loadAppData(): Promise<AppData> {
     (progressMap[p.tile_id] ??= {})[p.player_id] = p.count;
   });
 
+  const itemMap: Record<string, Record<string, string>> = {};
+  (items.data ?? []).forEach((i) => {
+    (itemMap[i.tile_id] ??= {})[i.item_key] = i.player_id;
+  });
+
+  const noteMap: Record<string, string> = {};
+  (notes.data ?? []).forEach((n) => {
+    if (n.note) noteMap[n.tile_id] = n.note;
+  });
+
   const done = new Set<string>((completions.data ?? []).map((c) => c.tile_id));
 
   const intentMap: Record<string, Record<string, Intent>> = {};
@@ -90,6 +112,8 @@ export async function loadAppData(): Promise<AppData> {
   const state: EventState = {
     claims: claimMap,
     progress: progressMap,
+    items: itemMap,
+    notes: noteMap,
     done,
     intents: intentMap,
     focusRegions,
@@ -121,6 +145,8 @@ export function toSnapshot(data: AppData): AppSnapshot {
     state: {
       claims: data.state.claims,
       progress: data.state.progress,
+      items: data.state.items,
+      notes: data.state.notes,
       doneIds: Array.from(data.state.done),
       intents: data.state.intents,
       focusRegions: [...data.state.focusRegions],
