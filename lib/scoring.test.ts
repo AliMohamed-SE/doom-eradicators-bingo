@@ -311,10 +311,10 @@ describe("fastestWayIn", () => {
   });
 
   it("sorts a mystery bridge behind anything with an objective", () => {
-    // east borders Maggot Monarch and Rangers when? plus one mystery bridge.
+    // east borders Maggot Monarch, Rangers when? and We love them — all named.
     expect(fastestWayIn("east", new Set())?.mystery).toBeUndefined();
-    // south_east has nothing but mystery bridges, so it still returns one.
-    expect(fastestWayIn("south_east", new Set())?.mystery).toBe(1);
+    // Morytania has nothing but mystery bridges, so it still returns one.
+    expect(fastestWayIn("south_west", new Set())?.mystery).toBe(1);
   });
 
   it("routes into south over Cheese and Fire, its only named border", () => {

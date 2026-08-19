@@ -401,7 +401,9 @@ export const BRIDGES: Bridge[] = [
   // is the prereq facing this border. The bridge itself is "Cheese and Fire".
   { id: "bridge_cheese_and_fire", name: "Cheese and Fire", o: "Get 3x Fire Capes/1x Infernal Cape", between: ["central", "south"], s: "Fight Caves / Inferno", r: "No drop rate — one cape per completed run. A Fight Caves run is about 1h15m start to finish; the Inferno is a single 2h+ run with a much lower success rate.", w: "https://oldschool.runescape.wiki/w/Fire_cape",
     i: { need: 3, c: "e", fix: 5, note: "Three fire capes is the realistic route: each completed Fight Caves is a guaranteed cape, roughly 1h15m a run plus resets, so about 5 hours for three. One infernal cape also clears it, but expect several 2h+ attempts unless someone already has the Inferno down." } },
-  { id: "bridge_south_east_unknown", name: "???", o: "???", between: ["east", "south_east"], mystery: 1 },
+  // "The Magic Wand" is Varlamore's bottom-middle TILE, the prereq facing this
+  // border. The bridge itself is "We love them".
+  { id: "bridge_we_love_them", name: "We love them", o: "Draw a very pretty picture of an average player killer — the organiser judges if it's pretty", between: ["east", "south_east"], s: "Challenge — leader judged", r: "N/A — challenge" },
 
   // ---- left-right neighbours, bottom row ----
   { id: "bridge_south_unknown", name: "???", o: "???", between: ["south_west", "south"], mystery: 1 },
