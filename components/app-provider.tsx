@@ -231,6 +231,48 @@ export function patchProofs(tileId: string, rows: ProofLink[]) {
 }
 
 /**
+ * A leader's whole-target contribution edit, applied in one go.
+ *
+ * `counts` is the complete player -> count map the target should end up with, which
+ * is what both setTileContribs (typed numbers) and setTileItemOwners (numbers
+ * recounted from ticks) leave behind — the editor works out which of those it is,
+ * because it is the side that knows whether the numbers grid was in play. `owners`
+ * is the new box map, omitted on a target with no boxes.
+ *
+ * Not layered on patchProgress: that one moves ONE player by a delta, and this
+ * replaces the whole breakdown. It still routes completion through the shared
+ * completionAfter, which is what keeps it from disagreeing with the server about
+ * whether the edit finished the tile.
+ */
+export function patchContribs(
+  tileId: string,
+  next: { counts: Record<string, number>; owners?: Record<string, string> },
+  goal: number,
+) {
+  return (s: AppSnapshot): AppSnapshot => {
+    const row: Record<string, number> = {};
+    for (const [pid, n] of Object.entries(next.counts)) if (n > 0) row[pid] = n;
+    const total = Object.values(row).reduce((a, b) => a + b, 0);
+    const doneIds = new Set(s.state.doneIds);
+    const claims = { ...s.state.claims };
+    if (completionAfter(doneIds.has(tileId), total, goal)) {
+      doneIds.add(tileId);
+      delete claims[tileId];
+    }
+    return {
+      ...s,
+      state: {
+        ...s.state,
+        progress: { ...s.state.progress, [tileId]: row },
+        items: next.owners ? { ...s.state.items, [tileId]: next.owners } : s.state.items,
+        doneIds: [...doneIds],
+        claims,
+      },
+    };
+  };
+}
+
+/**
  * Ticking or unticking one checklist box. Layered on patchProgress so the
  * completion rule lives in exactly one place.
  *

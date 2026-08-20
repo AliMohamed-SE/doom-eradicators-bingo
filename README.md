@@ -163,6 +163,35 @@ Goals come from `goalOf()`, in order: the number of `items`, the throughput targ
 leading `Nx` in the objective text, then 1. `scoring.test.ts` pins
 the resolved goal of all 81 tiles and 12 bridges, so a reworded objective can't move one silently.
 
+### Fixing who did what
+
+Everything above records whoever pressed the button, which is regularly the wrong person: three
+Cerberus crystals drop for three people and one of them logs all three; 50 rumours get split 10/20/20
+and nobody says so. **Fix contributions**, in the tile drawer's LEADER CONTROLS, rewrites the
+breakdown — and works on a **finished** tile, which is the main use for it. The alternative a leader
+would otherwise reach for is *Undo done*, which wipes every count and tick on the way past.
+
+It takes the shape of the tile, rather than offering a mode:
+
+| tile | the editor shows | action |
+| --- | --- | --- |
+| `checklist` | a player picker per named box; counts follow the boxes (`tickCredit`) | `setTileItemOwners` |
+| `count` / `bulk` | a number per player, with a `SUM n / goal` readout | `setTileContribs` |
+
+Notes worth knowing:
+
+- Rows start with everyone who has a count or is on the crew; a picker adds anyone else on the
+  roster, including seats with **no Discord linked** — they did the drop, they just haven't signed in.
+- Setting someone to 0 (or leaving them out) deletes their row, so "0 logged" and "no contributor"
+  stay the same state.
+- A counter with an `alt` box is both shapes at once, and they disagree by rule: an `alt` owner is
+  credited the whole goal. The numbers grid hides itself while one is assigned rather than showing
+  figures the save would overwrite.
+- Lowering a total never un-completes anything (see below), and raising it to the goal completes the
+  tile exactly as normal logging would.
+- The rules both the popup and the actions validate against live in `lib/contrib.ts`
+  (`contrib.test.ts`), for the same reason `lib/proof.ts` does.
+
 ### Completion is sticky
 
 Reaching the goal records a `tile_completions` row; falling back below it never removes one. Only a
@@ -184,7 +213,7 @@ trade-offs, made deliberately:
 - **Identity is a Discord account.** Each player links their Discord to one seat, and seats are
   finite, so a clanmate can't impersonate another player or take two seats. Writes are attributed to
   whichever character the acting Discord is linked to (derived server-side, not client-supplied).
-- **Leader actions are gated server-side** on every call (force-complete, focus, remove crew): the
+- **Leader actions are gated server-side** on every call (force-complete, focus, remove crew, proof links, rewriting contributions): the
   action confirms the acting player is a designated leader (`LEADER_NAMES` or the `is_leader` column)
   **and** that the device holds the correct `LEADER_CODE` cookie. So tapping a leader's name is not
   enough — you also need the code.

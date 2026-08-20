@@ -7,8 +7,9 @@ import { useConfirm } from "./confirm";
 import { SheetShell } from "./sheet-shell";
 import { TileProgress } from "./tile-progress";
 import { ProofButton, ProofPanel, ProofEditor } from "./tile-proof";
+import { ContribButton, ContribEditor } from "./tile-contrib";
 import { SKIN } from "./variants";
-import { RARES } from "@/lib/board-data";
+import { RARES, FREE_SPACE } from "@/lib/board-data";
 import {
   findTarget,
   tileState,
@@ -39,6 +40,7 @@ export function TileSheet({ id }: { id: string }) {
   const confirm = useConfirm();
   // Above the early return below — hook order must not depend on the id resolving.
   const [proofOpen, setProofOpen] = useState(false);
+  const [contribOpen, setContribOpen] = useState(false);
   const target = findTarget(id);
   if (!target) return null;
 
@@ -335,7 +337,18 @@ export function TileSheet({ id }: { id: string }) {
             >
               {isDone ? "Undo done" : "Mark done"}
             </button>
+            {/* Free space has nothing to attribute, and setTileContribs refuses it. */}
+            {id !== FREE_SPACE && <ContribButton onOpen={() => setContribOpen(true)} />}
           </div>
+          {/* Says out loud that this one still works after the tile is finished — the
+              alternative a leader would otherwise reach for is "Undo done", which
+              throws away every count and tick on the tile. */}
+          {id !== FREE_SPACE && (
+            <div className="text-[13px] leading-[1.35] text-amber-body">
+              &ldquo;Fix contributions&rdquo; sets who gets credited for what
+              {isDone ? ", and still works now this one is done." : "."}
+            </div>
+          )}
         </div>
       )}
 
@@ -422,6 +435,14 @@ export function TileSheet({ id }: { id: string }) {
           name={displayName}
           rows={proofs}
           onClose={() => setProofOpen(false)}
+        />
+      )}
+
+      {contribOpen && (
+        <ContribEditor
+          target={target}
+          name={displayName}
+          onClose={() => setContribOpen(false)}
         />
       )}
     </SheetShell>

@@ -24,6 +24,13 @@ import {
   type Target,
 } from "@/lib/scoring";
 import { cleanProofRows, PROOF_MAX_ROWS, type ProofLink } from "@/lib/proof";
+import {
+  cleanContribRows,
+  cleanItemOwnerRows,
+  applyItemOwners,
+  type ContribRow,
+  type ItemOwnerRow,
+} from "@/lib/contrib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 function refresh() {
@@ -401,6 +408,158 @@ async function recountItems(db: SupabaseClient, target: Target, playerId: string
     .eq("player_id", playerId);
   const owners = Object.fromEntries((rows.data ?? []).map((r) => [r.item_key, playerId]));
   await setCount(db, target.id, playerId, tickCredit(target, owners));
+}
+
+// ---------------------------------------------------------------------------
+// Leader contribution edits — rewrite WHO did what on a target.
+//
+// Everything above lets a person log their own work. In practice the board is kept
+// straight by the leaders afterwards, because people forget: three crystals dropped
+// for three different people, or 50 rumours where one did 10 and another did 20, all
+// logged under whoever happened to press the button. These two actions are the only
+// way to move credit between players.
+//
+// Deliberately allowed on a FINISHED target. That is the main use for them — the
+// tile is done, the split is wrong, and it has to be fixable without an "Undo done"
+// that wipes every count and tick on the way past. Safe because completion is never
+// derived downward (see completionAfter): lowering a total can't un-complete a tile,
+// and clearTiles stays the single path that does.
+//
+// One action per shape, because a target holds a contribution in one of two ways and
+// the validation for them has nothing in common. Both take the WHOLE list, like
+// setTileProofs: the list is the unit of work, the leader edits it as a set, and one
+// SAVE replaces the lot.
+// ---------------------------------------------------------------------------
+
+/** Every seat on the roster, linked or not. */
+async function rosterIds(db: SupabaseClient): Promise<string[]> {
+  const { data } = await db.from("players").select("id");
+  return (data ?? []).map((r) => r.id as string);
+}
+
+/**
+ * Leader sets each player's own count on a `count`/`bulk` target — the "some did 10,
+ * some did 20" case. Players missing from `rows` (and any sent as 0) end up with no
+ * row at all, so this both re-splits and takes credit away.
+ *
+ * A seat with no Discord linked is a valid recipient: they did the drop, they just
+ * haven't signed in to log it.
+ */
+export async function setTileContribs(tileId: string, rows: ContribRow[]) {
+  const id = await requirePlayer();
+  if (!id) return { error: "Pick a character first." };
+  if (!(await actingLeader())) return { error: "Leader only." };
+  if (tileId === FREE_SPACE) return { error: "Free space isn't trackable." };
+
+  const target = findTarget(tileId);
+  if (!target) return { error: "Unknown tile." };
+  const spec = progressSpec(target);
+  // Same refusal as logProgress, for the same reason: on a checklist tile the counts
+  // ARE the ticks (recountItems), so a number written here would be overwritten by
+  // the next tick and disagree with the boxes until then.
+  if (spec.mode === "checklist") {
+    return { error: "Assign this tile's boxes instead — its counts come from those." };
+  }
+
+  const db = admin();
+  // Validated against the live roster rather than the payload, so a stale client
+  // cannot credit a seat that has since been deleted.
+  const clean = cleanContribRows(rows, spec.goal, await rosterIds(db));
+
+  if (clean.length) {
+    const up = await db.from("tile_progress").upsert(
+      clean.map((r) => ({
+        tile_id: tileId,
+        player_id: r.playerId,
+        count: r.count,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: "tile_id,player_id" },
+    );
+    if (up.error) return { error: up.error.message };
+  }
+
+  // Delete LAST and only what is gone, the same ordering as setTileProofs: there is
+  // no transaction here, so a failure between the two calls has to leave a stale
+  // extra contributor rather than a target whose progress has vanished.
+  const keep = clean.map((r) => `"${r.playerId}"`).join(",");
+  const del = clean.length
+    ? await db
+        .from("tile_progress")
+        .delete()
+        .eq("tile_id", tileId)
+        .not("player_id", "in", `(${keep})`)
+    : await db.from("tile_progress").delete().eq("tile_id", tileId);
+  if (del.error) return { error: del.error.message };
+
+  await syncCompletion(db, target, id);
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Leader sets who owns each named box — the "three crystals dropped for three
+ * different people" case. `playerId: null` clears a box.
+ *
+ * Only the keys present in `rows` are touched, and every player on either side of a
+ * move is recounted from their ticks, because a reassignment changes two people's
+ * numbers at once.
+ */
+export async function setTileItemOwners(tileId: string, rows: ItemOwnerRow[]) {
+  const id = await requirePlayer();
+  if (!id) return { error: "Pick a character first." };
+  if (!(await actingLeader())) return { error: "Leader only." };
+
+  const target = findTarget(tileId);
+  if (!target) return { error: "Unknown tile." };
+  const spec = progressSpec(target);
+  // `alt` boxes are included: they exist on plain counters too ("…or just a Shadow"),
+  // and whoever owns one is credited the whole goal, so they need reassigning most.
+  const keys = [...spec.items, ...spec.alt].map((i) => i.k);
+  if (!keys.length) return { error: "This tile has no boxes to assign." };
+
+  const db = admin();
+  const clean = cleanItemOwnerRows(rows, keys, await rosterIds(db));
+  if (!clean.length) return { ok: true };
+
+  const before = await db
+    .from("tile_items")
+    .select("item_key, player_id")
+    .eq("tile_id", tileId);
+  if (before.error) return { error: before.error.message };
+  const beforeOwners: Record<string, string> = Object.fromEntries(
+    (before.data ?? []).map((r) => [r.item_key as string, r.player_id as string]),
+  );
+
+  const { touched } = applyItemOwners(beforeOwners, clean);
+  if (!touched.length) return { ok: true }; // nothing actually moved
+
+  const assigned = clean.filter((r) => r.playerId);
+  if (assigned.length) {
+    const up = await db.from("tile_items").upsert(
+      assigned.map((r) => ({ tile_id: tileId, item_key: r.itemKey, player_id: r.playerId })),
+      { onConflict: "tile_id,item_key" },
+    );
+    if (up.error) return { error: up.error.message };
+  }
+
+  const cleared = clean.filter((r) => !r.playerId).map((r) => r.itemKey);
+  if (cleared.length) {
+    const del = await db
+      .from("tile_items")
+      .delete()
+      .eq("tile_id", tileId)
+      .in("item_key", cleared);
+    if (del.error) return { error: del.error.message };
+  }
+
+  // Recompute rather than nudge, for the reason toggleItem gives: with no locking and
+  // no stored procedures, an idempotent recount is the only thing stopping two tabs
+  // from leaving ticks and counts permanently out of step.
+  for (const pid of touched) await recountItems(db, target, pid);
+  await syncCompletion(db, target, id);
+  refresh();
+  return { ok: true };
 }
 
 async function completeTile(tileId: string, byPlayerId: string | null) {
