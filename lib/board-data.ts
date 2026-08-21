@@ -442,7 +442,8 @@ export const BRIDGES: Bridge[] = [
   { id: "bridge_rangers_when", name: "Rangers when?", o: "Open any tier of clue worth 700k", between: ["central", "east"], s: "Clue scrolls (any tier)", r: "No fixed rate — it is the chance a single reward casket rolls 700k+ in one open, which swings with GE prices. Higher tiers spike far more often.", w: "https://oldschool.runescape.wiki/w/Reward_casket" },
 
   // ---- top-bottom neighbours, middle row into bottom row ----
-  { id: "bridge_south_west_unknown", name: "???", o: "???", between: ["west", "south_west"], mystery: 1 },
+  { id: "bridge_prison_sentence", name: "Prison Sentence", o: "Get 1x Crystal Seed from CG", between: ["west", "south_west"], s: "Corrupted Gauntlet", r: "Crystal weapon seed 1/50, crystal armour seed 1/50 and enhanced crystal weapon seed 1/400 per completion — any seed ≈ 1/24.", w: "https://oldschool.runescape.wiki/w/The_Gauntlet",
+    i: { need: 1, c: "w", d: [{ n: "Corrupted Gauntlet", r: 24, k: 5, u: "completions" }], note: "Any of the three seeds clears it, so ≈ 1/24 a completion rather than 1/50. About 10–14 minutes a run for a competent player, so roughly 5 completions an hour — call it ~5 hours. A death gives no reward chest at all, so a bad run is pure time lost." } },
   // Not a bridge of its own: "Abyssal Cryer" is central's bottom-middle TILE, which
   // is the prereq facing this border. The bridge itself is "Cheese and Fire".
   { id: "bridge_cheese_and_fire", name: "Cheese and Fire", o: "Get 3x Fire Capes/1x Infernal Cape", between: ["central", "south"], s: "Fight Caves / Inferno", r: "No drop rate — one cape per completed run. A Fight Caves run is about 1h15m start to finish; the Inferno is a single 2h+ run with a much lower success rate.", w: "https://oldschool.runescape.wiki/w/Fire_cape",

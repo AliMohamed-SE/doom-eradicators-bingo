@@ -205,7 +205,7 @@ describe("goalOf", () => {
       bridge_maggot_monarch: 1,
       bridge_m_lady: 1,
       bridge_rangers_when: 1,
-      bridge_south_west_unknown: 1,
+      bridge_prison_sentence: 1,
       bridge_cheese_and_fire: 3,
       bridge_we_love_them: 1,
       bridge_south_unknown: 1,
@@ -647,9 +647,10 @@ describe("regionUnlocked & tileState", () => {
   });
 
   it("a mystery bridge stays locked even with its facing tile done", () => {
-    const b = BRIDGES.find((x) => x.id === "bridge_south_west_unknown")!;
-    const westFacing = REGIONS.find((r) => r.id === "west")!.tiles[7].id;
-    expect(bridgeStatus(b, { done: new Set(["bridge_m_lady", westFacing]) })).toBe("locked");
+    const b = BRIDGES.find((x) => x.id === "bridge_south_unknown")!;
+    const facing = REGIONS.find((r) => r.id === "south_west")!.tiles[5].id;
+    const done = new Set(["bridge_m_lady", "bridge_prison_sentence", facing]);
+    expect(bridgeStatus(b, { done })).toBe("locked");
   });
 });
 
@@ -660,8 +661,9 @@ describe("fastestWayIn", () => {
   });
 
   it("picks the cheapest bridge on any of the region's borders", () => {
-    // Kebos & Kourend borders M'Lady (Crazy Arch, ~3h) and Obsidian Breaker
-    // (TzHaar, ~13h). Neither is crossable yet — cost decides, not reachability.
+    // Kebos & Kourend borders M'Lady (Crazy Arch, ~3h), Prison Sentence (CG,
+    // ~5h) and Obsidian Breaker (TzHaar, ~13h). None is crossable yet — cost
+    // decides, not reachability.
     expect(fastestWayIn("west", new Set())?.id).toBe("bridge_m_lady");
     // north_west borders Obsidian Breaker (rated) and Lil Champion (no rate).
     expect(fastestWayIn("north_west", new Set())?.id).toBe("bridge_obsidian_breaker");
@@ -675,8 +677,9 @@ describe("fastestWayIn", () => {
   it("sorts a mystery bridge behind anything with an objective", () => {
     // east borders Maggot Monarch, Rangers when? and We love them — all named.
     expect(fastestWayIn("east", new Set())?.mystery).toBeUndefined();
-    // Morytania has nothing but mystery bridges, so it still returns one.
-    expect(fastestWayIn("south_west", new Set())?.mystery).toBe(1);
+    // Wilderness borders We love them (a challenge, no rate) and one mystery —
+    // no estimate still beats no objective.
+    expect(fastestWayIn("south_east", new Set())?.id).toBe("bridge_we_love_them");
   });
 
   it("routes into south over Cheese and Fire, its only named border", () => {
