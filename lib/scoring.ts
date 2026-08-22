@@ -19,6 +19,7 @@ import {
   type Tile,
   type OsrsInfo,
   type ItemDef,
+  type ItemSet,
   type NoteField,
   type TileTracking,
   type Confidence,
@@ -369,9 +370,29 @@ export function trackingOf(id: string | undefined): TileTracking | undefined {
   return id ? TILE_TRACKING[id] : undefined;
 }
 
-/** The tick boxes for a checklist target; empty for a plain counter. */
+/**
+ * The tick boxes for a checklist target; empty for a plain counter.
+ *
+ * A `sets` target has no `items` of its own — its boxes are every piece of every
+ * set, flattened in declaration order. That is deliberately what the boxes ARE:
+ * validation (toggleItem), leader reassignment (setTileItemOwners) and the mode
+ * check all want the full list, and only the goal and the credit rule care about
+ * the grouping. Compare goalOf, which reads one set's length instead.
+ */
 export function itemsOf(target: { id?: string } | null | undefined): readonly ItemDef[] {
-  return trackingOf(target?.id)?.items ?? [];
+  const track = trackingOf(target?.id);
+  if (track?.items?.length) return track.items;
+  return track?.sets?.flatMap((s) => s.items) ?? [];
+}
+
+/** The alternative sets on a target; empty for everything else. */
+export function setsOf(target: { id?: string } | null | undefined): readonly ItemSet[] {
+  return trackingOf(target?.id)?.sets ?? [];
+}
+
+/** Row labels for a set grid, index-aligned with each set's items. */
+export function slotsOf(target: { id?: string } | null | undefined): readonly string[] {
+  return trackingOf(target?.id)?.slots ?? [];
 }
 
 /** Boxes that clear the whole objective on their own; usually empty. */
@@ -381,17 +402,23 @@ export function altOf(target: { id?: string } | null | undefined): readonly Item
 
 /**
  * How many of the thing the target asks for, in order of authority:
- *   1. TILE_TRACKING.items      — one per named part, all required
- *   2. i.hr.got                 — the throughput objectives (10k runes, 500 laps)
- *   3. the leading "Nx" in the objective text
- *   4. 1
+ *   1. TILE_TRACKING.sets[0]    — one set's length, NOT the total number of boxes
+ *   2. TILE_TRACKING.items      — one per named part, all required
+ *   3. i.hr.got                 — the throughput objectives (10k runes, 500 laps)
+ *   4. the leading "Nx" in the objective text
+ *   5. 1
+ *
+ * Sets come first and count one set, because that is the objective: four pieces of
+ * one Barrows brother, not 24 pieces of six. Every set on a tile is the same length
+ * (asserted in scoring.test.ts), so which one we measure does not matter.
  *
  * Callers must pass the whole target, not just `{ o }` — the goal has not come
  * from the prose alone since checklist and bulk tiles existed.
  */
 export function goalOf(tile: Pick<Tile, "o"> & { id?: string; i?: OsrsInfo }): number {
-  const items = trackingOf(tile.id)?.items;
-  if (items?.length) return items.length;
+  const track = trackingOf(tile.id);
+  if (track?.sets?.length) return track.sets[0].items.length;
+  if (track?.items?.length) return track.items.length;
   if (tile.i?.hr) return tile.i.hr.got;
   const m = /(\d+)\s*x/i.exec(tile.o || "");
   return m ? parseInt(m[1], 10) : 1;
@@ -410,6 +437,15 @@ export interface ProgressSpec {
   mode: ProgressMode;
   goal: number;
   items: readonly ItemDef[];
+  /**
+   * The mutually alternative sets, when the tile has them; empty otherwise. A set
+   * tile stays `mode: "checklist"` on purpose — every rule that branches on that
+   * mode is really asking "do the counts come from ticks?", and for a set tile they
+   * still do. Only the box UI cares about the grouping, so only it reads this.
+   */
+  sets: readonly ItemSet[];
+  /** row labels for the set grid, index-aligned with each set's items */
+  slots: readonly string[];
   alt: readonly ItemDef[];
   /** unit word for the bulk readout ("laps"), "" when there isn't one */
   unit: string;
@@ -436,6 +472,8 @@ export function progressSpec(target: Target | Tile | Bridge): ProgressSpec {
     mode,
     goal,
     items,
+    sets: setsOf(t),
+    slots: slotsOf(t),
     alt: altOf(t),
     note: trackingOf(t.id)?.note ?? null,
     unit: t.i?.hr?.u ?? "",
@@ -505,12 +543,77 @@ export function itemOwners(
   return items[id] || {};
 }
 
+/** One set's standing on a target: how many of its pieces are ticked. */
+export interface SetProgress {
+  set: ItemSet;
+  /** pieces of this set with an owner */
+  ticks: number;
+  /** every piece ticked — this set alone finishes the tile */
+  complete: boolean;
+}
+
+/** Every set's standing, in declaration order. Empty for a target without sets. */
+export function setProgress(
+  target: { id?: string },
+  owners: Record<string, string>,
+): SetProgress[] {
+  return setsOf(target).map((set) => {
+    const ticks = set.items.reduce((a, i) => a + (owners[i.k] ? 1 : 0), 0);
+    return { set, ticks, complete: ticks >= set.items.length };
+  });
+}
+
+/**
+ * The set the team is closest to finishing — the one the tile's progress readout
+ * and every count on it are measured against.
+ *
+ * Ties go to declaration order. That is arbitrary but it has to be SOMETHING and it
+ * has to be stable, because this decides whose contribution counts: while two
+ * brothers are level on two pieces each, only one of them can be "2/4" without the
+ * total on the tile becoming a number that means nothing. A completed set always
+ * wins outright, since complete is the highest score available.
+ *
+ * Null when the target has no sets, so callers can use it as the "is this a set
+ * tile" test as well.
+ */
+export function leadingSet(
+  target: { id?: string },
+  owners: Record<string, string>,
+): SetProgress | null {
+  let best: SetProgress | null = null;
+  for (const p of setProgress(target, owners)) {
+    if (!best || p.ticks > best.ticks) best = p;
+  }
+  return best;
+}
+
+/** The set that is finished, if one is. First declared wins the (impossible) tie. */
+export function completedSet(
+  target: { id?: string },
+  owners: Record<string, string>,
+): ItemSet | null {
+  return setProgress(target, owners).find((p) => p.complete)?.set ?? null;
+}
+
 /**
  * What ticks are worth against the goal — all of them, or one player's when
  * `playerId` is given. An `alt` tick is worth the whole goal, which is how "or a
  * Shadow" beats three Masori pieces without giving individual boxes weights;
  * weights would quietly redefine what a "count" means in the crew list and in the
  * contributions ranking.
+ *
+ * On a `sets` target only the LEADING set's pieces are worth anything. A player
+ * holding Dharok's helm and Ahrim's staff has one piece of two different grinds and
+ * has moved the objective forward by one, not two — crediting both would let a tile
+ * whose goal is 4 read 6/4 with no set anywhere near done, and completion is a
+ * re-sum of exactly these numbers (syncCompletion in app/actions.ts). The pieces
+ * outside the leading set are not lost: they are still ticked, still attributed, and
+ * still there the moment their own set takes the lead.
+ *
+ * The consequence worth knowing about: one person's tick can move every OTHER
+ * player's count, because it can change which set leads. Whatever writes a set
+ * tile's counts must therefore recompute the whole tile, not one row — see
+ * derivedCounts, and recountItems in app/actions.ts.
  *
  * The one place this rule lives — the server recomputes counts with it, the drawer
  * decides which boxes are still live with it.
@@ -522,12 +625,61 @@ export function tickCredit(
 ): number {
   const goal = goalOf({ o: target.o ?? "", id: target.id, i: target.i });
   const altKeys = new Set(altOf(target).map((a) => a.k));
+  const mine = (owner: string | undefined) =>
+    !!owner && (playerId === undefined || owner === playerId);
+
   let credit = 0;
+  // `alt` is orthogonal to the rest: it is one item that replaces the whole grind,
+  // whichever shape the grind has.
+  for (const key of altKeys) if (mine(owners[key])) credit += goal;
+
+  const lead = leadingSet(target, owners);
+  if (lead) {
+    for (const item of lead.set.items) if (mine(owners[item.k])) credit += 1;
+    return credit;
+  }
+
   for (const [key, owner] of Object.entries(owners)) {
-    if (playerId !== undefined && owner !== playerId) continue;
-    credit += altKeys.has(key) ? goal : 1;
+    if (altKeys.has(key) || !mine(owner)) continue;
+    credit += 1;
   }
   return credit;
+}
+
+/**
+ * Everyone's count on a target, derived from its box owners alone.
+ *
+ * The whole breakdown at once, because on a set tile that is the only correct unit:
+ * one tick can change which set leads and so change what everybody else's ticks are
+ * worth. Shared by the server's recount, the leader editor's read-only figures and
+ * the optimistic patch, so all three agree about who is owed what.
+ *
+ * Players whose ticks are worth nothing are omitted, not zeroed — "no row" and
+ * "0 logged" are the same state everywhere else (see setCount in app/actions.ts).
+ */
+export function derivedCounts(
+  target: { id?: string; o?: string; i?: OsrsInfo },
+  owners: Record<string, string>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const pid of new Set(Object.values(owners))) {
+    const n = tickCredit(target, owners, pid);
+    if (n > 0) out[pid] = n;
+  }
+  return out;
+}
+
+/**
+ * The boxes a leader's force-done should tick, so a finished tile never shows a full
+ * count against empty boxes. One whole set on a set tile — any of them would do, and
+ * the first is the one the grid reads left to right.
+ */
+export function completingItems(
+  target: { id?: string; o?: string; i?: OsrsInfo },
+): readonly ItemDef[] {
+  const sets = setsOf(target);
+  if (sets.length) return sets[0].items;
+  return itemsOf(target).slice(0, goalOf({ o: target.o ?? "", id: target.id, i: target.i }));
 }
 
 /**

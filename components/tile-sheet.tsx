@@ -21,6 +21,7 @@ import {
   fmtHrs,
   bridgeApproach,
   proofsFor,
+  itemOwners,
 } from "@/lib/scoring";
 import { toggleClaim, removeWorker, toggleFocus, forceCompletion } from "@/app/actions";
 import {
@@ -54,8 +55,14 @@ export function TileSheet({ id }: { id: string }) {
   const crew = state.claims[id] || [];
   const iAmOn = !!uid && crew.includes(uid);
   const mineCount = state.progress[id]?.[uid] ?? 0;
+  // A box I own counts as much as a count I logged. On a set tile the two come apart:
+  // only the leading set is worth anything, so somebody else's tick can take my count
+  // to 0 while my box stays mine — and I still have to be able to untick it. Mirrors
+  // canTouch() in app/actions.ts, which is the gate that actually decides.
+  const iOwnABox = !!uid && Object.values(itemOwners(state.items, id)).includes(uid);
   const focused = state.focusTiles.includes(id);
-  const canProgress = !!uid && st !== "locked" && !isDone && (isLeader || iAmOn || mineCount > 0);
+  const canProgress =
+    !!uid && st !== "locked" && !isDone && (isLeader || iAmOn || mineCount > 0 || iOwnABox);
   const canDown = !!uid && !isDone && st !== "locked";
 
   const kindLabel =

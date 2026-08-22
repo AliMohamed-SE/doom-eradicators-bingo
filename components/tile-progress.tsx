@@ -13,6 +13,7 @@ import {
 } from "@/lib/scoring";
 import type { NoteField } from "@/lib/board-data";
 import { logProgress, toggleItem, setTileNote } from "@/app/actions";
+import { SetGrid } from "./tile-set-grid";
 import { cn } from "@/lib/cn";
 
 /**
@@ -70,15 +71,21 @@ export function TileProgress({
   if (spec.mode === "checklist") {
     return (
       <div className={panel}>
-        {head}
+        {/* A finished set tile has said everything in one line ("FULL SET — Dharok
+            the Wretched"), so the 4/4 above it would only repeat itself. */}
+        {!(spec.sets.length && isDone) && head}
         {spec.note && <TileNote id={id} field={spec.note} canProgress={canProgress} />}
-        <ChecklistBoxes
-          target={target}
-          canProgress={canProgress}
-          isDone={isDone}
-          name={name}
-          confirm={confirm}
-        />
+        {spec.sets.length > 0 ? (
+          <SetGrid target={target} canProgress={canProgress} isDone={isDone} name={name} />
+        ) : (
+          <ChecklistBoxes
+            target={target}
+            canProgress={canProgress}
+            isDone={isDone}
+            name={name}
+            confirm={confirm}
+          />
+        )}
       </div>
     );
   }

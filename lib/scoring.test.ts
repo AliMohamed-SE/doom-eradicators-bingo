@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { REGIONS, BRIDGES, FREE_SPACE, TILE_TRACKING } from "./board-data";
+import { existsSync, readFileSync } from "node:fs";
+import {
+  REGIONS,
+  BRIDGES,
+  FREE_SPACE,
+  TILE_TRACKING,
+  BARROWS,
+  BARROWS_SLOT_LABELS,
+} from "./board-data";
 import {
   goalOf,
   progressSpec,
@@ -8,6 +15,14 @@ import {
   assignLegacyItems,
   tickCredit,
   itemOwners,
+  itemsOf,
+  setsOf,
+  slotsOf,
+  setProgress,
+  leadingSet,
+  completedSet,
+  derivedCounts,
+  completingItems,
   allTiles,
   fmtCompact,
   progressTotal,
@@ -269,11 +284,30 @@ describe("progressSpec", () => {
     expect(progressSpec(target("justmi")).alt.map((a) => a.k)).toEqual(["scythe"]);
   });
 
-  it("asks for a shared note only where the boxes need one", () => {
-    // Four Barrows pieces mean nothing unless everyone agrees which brother.
-    expect(progressSpec(target("me_and_my_brothers")).note?.label).toBe("WHICH SET");
-    expect(progressSpec(target("clifford_s_revenge")).note).toBeNull();
-    expect(progressSpec(target("masks_off")).note).toBeNull();
+  it("asks for a shared note nowhere now the Barrows grid derives its own set", () => {
+    // Me and My Brothers was the last tile with one — a leader typed which brother
+    // the team was going for, next to four generic boxes. `sets` reads that off the
+    // ticks instead. The machinery stays for the next objective of that shape, so
+    // this asserts nothing asks for it rather than that it is gone.
+    for (const t of [...allTiles(), ...BRIDGES]) {
+      expect(progressSpec(t), t.id).toMatchObject({ note: null });
+    }
+  });
+
+  it("keeps a set tile a checklist, and its goal one set", () => {
+    // The mode is what every "do the counts come from ticks?" branch reads, and on a
+    // set tile they still do. The goal is four pieces of one brother, NOT all 24.
+    const s = progressSpec(target("me_and_my_brothers"));
+    expect(s.mode).toBe("checklist");
+    expect(s.goal).toBe(4);
+    expect(s.items).toHaveLength(24);
+    expect(s.sets.map((x) => x.k)).toEqual(["ahrim", "dharok", "guthan", "karil", "torag", "verac"]);
+    expect(s.slots).toEqual(["Helm", "Body", "Legs", "Weapon"]);
+    // Nothing else on the board is a set tile — migration 0006 and the grid are
+    // written for this one, and the tests below assume it.
+    expect(Object.keys(TILE_TRACKING).filter((id) => setsOf({ id }).length)).toEqual([
+      "me_and_my_brothers",
+    ]);
   });
 });
 
@@ -291,7 +325,9 @@ describe("TILE_TRACKING integrity", () => {
 
   it("uses safe, unique item keys within each target", () => {
     for (const [id, track] of Object.entries(TILE_TRACKING)) {
-      const keys = [...(track.items ?? []), ...(track.alt ?? [])].map((i) => i.k);
+      // itemsOf, not track.items: a set tile's boxes are its sets flattened, and they
+      // are the keys that reach tile_items.
+      const keys = [...itemsOf({ id }), ...(track.alt ?? [])].map((i) => i.k);
       expect(keys.length, `${id} has no boxes at all`).toBeGreaterThan(0);
       for (const k of keys) expect(k, `${id}.${k}`).toMatch(/^[a-z0-9_]+$/);
       expect(new Set(keys).size, `${id} repeats an item key`).toBe(keys.length);
@@ -300,9 +336,37 @@ describe("TILE_TRACKING integrity", () => {
 
   it("gives every checklist tile at least two boxes", () => {
     // One box would just be a 0/1 counter wearing a tick.
-    for (const [id, track] of Object.entries(TILE_TRACKING)) {
-      if (!track.items) continue;
-      expect(track.items.length, `${id} has too few items`).toBeGreaterThan(1);
+    for (const id of Object.keys(TILE_TRACKING)) {
+      const items = itemsOf({ id });
+      if (!items.length) continue;
+      expect(items.length, `${id} has too few items`).toBeGreaterThan(1);
+    }
+  });
+
+  it("keeps a target's sets the same length, and index-aligned with its slots", () => {
+    // goalOf measures set[0], leadingSet compares tick counts across sets and the grid
+    // walks slots x sets — all three are nonsense if the sets are ragged.
+    for (const id of Object.keys(TILE_TRACKING)) {
+      const sets = setsOf({ id });
+      if (!sets.length) continue;
+      expect(setsOf({ id }).length, `${id} has one set`).toBeGreaterThan(1);
+      const slots = slotsOf({ id });
+      for (const set of sets) {
+        expect(set.items.length, `${id}.${set.k} is a different length`).toBe(slots.length);
+        // The key prefix is what migration 0006's SQL splits on to find a piece's set.
+        for (const item of set.items) {
+          expect(item.k, `${id}.${item.k} is not prefixed by its set`).toMatch(
+            new RegExp(`^${set.k}_[a-z0-9]+$`),
+          );
+        }
+      }
+      // Declaration order decides ties in leadingSet; 0006 re-derives the same counts
+      // in SQL and can only tie-break alphabetically, so the two agree only while the
+      // sets are declared in ascending key order.
+      const keys = sets.map((x) => x.k);
+      expect(keys, `${id} declares its sets out of order`).toEqual(keys.slice().sort());
+      // A tile cannot have both: itemsOf would ignore the sets.
+      expect(TILE_TRACKING[id].items, `${id} has items AND sets`).toBeUndefined();
     }
   });
 
@@ -349,6 +413,125 @@ describe("checklist items", () => {
 });
 
 /*
+ * The Barrows tile: 24 boxes, and any four matching ones finish it. Everything here is
+ * the consequence of one rule — only the LEADING set's pieces are worth anything —
+ * which is what stops a tile whose goal is 4 reading 6/4 with no brother near done.
+ */
+describe("set tiles", () => {
+  const bros = target("me_and_my_brothers");
+  const key = (set: string, slot: string) => `${set}_${slot}`;
+  const full = (set: string, player: string) =>
+    Object.fromEntries(["helm", "body", "legs", "weapon"].map((s) => [key(set, s), player]));
+
+  it("has every brother's four pieces as a box, with a sprite each", () => {
+    expect(BARROWS).toHaveLength(6);
+    const items = itemsOf(bros);
+    expect(items).toHaveLength(24);
+    for (const item of items) {
+      expect(item.img, `${item.k} has no sprite`).toBeTruthy();
+      // A missing file renders an empty cell, and the grid is nothing but cells.
+      expect(
+        existsSync(new URL(`../public${item.img}`, import.meta.url)),
+        `${item.img} is not in public/`,
+      ).toBe(true);
+      // The label is the in-game item name, which is the whole point of naming it.
+      expect(item.n, item.k).toMatch(/^[A-Z][a-z]+'s [a-z]+$/);
+    }
+  });
+
+  it("scores each set on its own ticks", () => {
+    const owners = { ...full("dharok", "a"), ahrim_weapon: "b" };
+    const byKey = Object.fromEntries(setProgress(bros, owners).map((p) => [p.set.k, p]));
+    expect(byKey.dharok).toMatchObject({ ticks: 4, complete: true });
+    expect(byKey.ahrim).toMatchObject({ ticks: 1, complete: false });
+    expect(byKey.verac).toMatchObject({ ticks: 0, complete: false });
+  });
+
+  it("leads with the closest set, ties going to declaration order", () => {
+    expect(leadingSet(bros, {})?.set.k).toBe("ahrim");
+    expect(leadingSet(bros, { verac_helm: "a" })?.set.k).toBe("verac");
+    // torag two, verac two — torag is declared first, so torag leads. Arbitrary, but
+    // it has to be stable: this is what decides whose count is worth anything.
+    const tie = { torag_helm: "a", torag_body: "a", verac_helm: "b", verac_body: "b" };
+    expect(leadingSet(bros, tie)?.set.k).toBe("torag");
+    // A plain checklist tile has no sets at all, which is how callers test for one.
+    expect(leadingSet(target("clifford_s_revenge"), {})).toBeNull();
+  });
+
+  it("credits only the leading set's pieces", () => {
+    // Two grinds one piece in each: the objective has moved forward by one, not two.
+    const split = { dharok_helm: "a", ahrim_weapon: "a" };
+    expect(tickCredit(bros, split)).toBe(1);
+    // ahrim leads the tie, so a's dharok piece is worth nothing YET — it is still
+    // ticked and still theirs, and it counts the moment dharok takes the lead.
+    expect(tickCredit(bros, split, "a")).toBe(1);
+    const dharokAhead = { ...split, dharok_body: "b" };
+    expect(tickCredit(bros, dharokAhead)).toBe(2);
+    expect(tickCredit(bros, dharokAhead, "a")).toBe(1);
+    expect(tickCredit(bros, dharokAhead, "b")).toBe(1);
+  });
+
+  it("reaches the goal on a full set and no sooner", () => {
+    // Six pieces, no set finished — the tile must not complete on the arithmetic.
+    const scattered = Object.fromEntries(
+      ["ahrim_helm", "dharok_helm", "guthan_helm", "karil_helm", "torag_helm", "verac_helm"].map(
+        (k) => [k, "a"],
+      ),
+    );
+    expect(tickCredit(bros, scattered)).toBe(1);
+    expect(reachesGoal(tickCredit(bros, scattered), goalOf(bros))).toBe(false);
+
+    const done = full("guthan", "a");
+    expect(tickCredit(bros, done)).toBe(4);
+    expect(reachesGoal(tickCredit(bros, done), goalOf(bros))).toBe(true);
+    expect(completedSet(bros, done)?.n).toBe("Guthan the Infested");
+    expect(completedSet(bros, scattered)).toBeNull();
+  });
+
+  it("credits everyone who got a piece of the set that finished", () => {
+    // The point of the whole thing: four people, four pieces, four contributors.
+    const owners = {
+      karil_helm: "a",
+      karil_body: "b",
+      karil_legs: "c",
+      karil_weapon: "d",
+      // and one piece of a set that went nowhere — worth nothing, still attributed
+      torag_helm: "e",
+    };
+    expect(derivedCounts(bros, owners)).toEqual({ a: 1, b: 1, c: 1, d: 1 });
+    expect(completedSet(bros, owners)?.k).toBe("karil");
+  });
+
+  it("drops a contributor whose set stopped leading", () => {
+    // The reason a set tile is recounted whole: b's tick moves a's count to 0, and
+    // nothing about a's own rows changed.
+    const before = { ahrim_helm: "a", dharok_helm: "b" };
+    expect(derivedCounts(bros, before)).toEqual({ a: 1 });
+    const after = { ...before, dharok_body: "b" };
+    expect(derivedCounts(bros, after)).toEqual({ b: 2 });
+  });
+
+  it("force-completes with one whole set, not the first four boxes", () => {
+    expect(completingItems(bros).map((i) => i.k)).toEqual([
+      "ahrim_helm",
+      "ahrim_body",
+      "ahrim_legs",
+      "ahrim_weapon",
+    ]);
+    expect(tickCredit(bros, Object.fromEntries(completingItems(bros).map((i) => [i.k, "L"])))).toBe(
+      goalOf(bros),
+    );
+    // Unchanged for everything else: the first `goal` boxes in declaration order.
+    expect(completingItems(target("clifford_s_revenge")).map((i) => i.k)).toEqual([
+      "primordial",
+      "pegasian",
+      "eternal",
+    ]);
+    expect(completingItems(target("masks_off"))).toHaveLength(0);
+  });
+});
+
+/*
  * The 0004 migration has to name every item key and goal in SQL, because it has to
  * resolve player ids at run time — so the same facts exist twice. Rather than
  * generate the SQL (and have the generator rot), assert the two agree. This is the
@@ -390,9 +573,78 @@ describe("migration 0004 agrees with the code", () => {
     // been three pieces or one Shadow, and the three pieces are the honest guess.
     const expected: string[] = [];
     for (const [id, track] of Object.entries(TILE_TRACKING)) {
+      // A set tile's rows here are the keys it had in 0004, not the ones it has now —
+      // 0006 renamed them. Those come from 0006's own rename list below rather than
+      // being retyped, because "0006 renames exactly what 0004 created" is the
+      // invariant worth guarding; retyping them would let the two drift apart.
+      if (track.sets) continue;
       (track.items ?? []).forEach((item, i) => expected.push(`${id}:${i + 1}:${item.k}`));
     }
+    RENAMED_KEYS.forEach((k, i) => expected.push(`me_and_my_brothers:${i + 1}:${k}`));
+
     expect(inSql.slice().sort()).toEqual(expected.slice().sort());
+  });
+});
+
+/*
+ * Migration 0006 turns those four generic Barrows keys into the 24 named ones. It has
+ * to name both halves in SQL — the old keys it reads and the brother names it maps
+ * them onto — so, like 0004, the same facts exist twice and the job here is to assert
+ * they agree. A brother missing from the SQL silently drops that leader's note on the
+ * floor; a slot missing from it leaves a tick nothing can render.
+ */
+const MIGRATION_0006 = readFileSync(
+  new URL("../supabase/migrations/0006_barrows_sets.sql", import.meta.url),
+  "utf8",
+);
+
+/**
+ * Both of 0006's lookup blocks are two lowercase strings a row, so they have to be
+ * read per block rather than by shape — the same slicing the 0004 assertions use.
+ */
+const pairs0006 = (header: string): { a: string; b: string }[] => {
+  const start = MIGRATION_0006.indexOf(header);
+  expect(start, `missing "${header}" in 0006`).toBeGreaterThan(-1);
+  const body = MIGRATION_0006.slice(start, MIGRATION_0006.indexOf("\n)", start));
+  return [...body.matchAll(/\('([a-z_]+)',\s*'([a-z_]+)'\)/g)].map((m) => ({
+    a: m[1],
+    b: m[2],
+  }));
+};
+
+/** The old keys 0006 renames, in slot order — 0004's four generic Barrows boxes. */
+const RENAMED_KEYS = pairs0006("with slots(old_key, slot) as (values").map((p) => p.a);
+
+describe("migration 0006 agrees with the code", () => {
+  const slots = pairs0006("with slots(old_key, slot) as (values").map((p) => ({
+    oldKey: p.a,
+    slot: p.b,
+  }));
+  const brothers = pairs0006("brothers(pattern, set_key) as (values").map((p) => ({
+    pattern: p.a,
+    setKey: p.b,
+  }));
+
+  it("renames a key onto every slot of every set", () => {
+    expect(slots).toHaveLength(BARROWS_SLOT_LABELS.length);
+    // Every (set, slot) pair the SQL can produce has to be a real box.
+    const real = new Set(itemsOf({ id: "me_and_my_brothers" }).map((i) => i.k));
+    for (const b of BARROWS) {
+      for (const s of slots) {
+        expect(real, `0006 would write ${b.k}_${s.slot}`).toContain(`${b.k}_${s.slot}`);
+      }
+    }
+  });
+
+  it("can resolve every brother out of a leader's note", () => {
+    // A brother absent here means a note naming them resolves to nothing and their
+    // ticks get dropped instead of renamed.
+    const resolvable = new Set(brothers.map((b) => b.setKey));
+    for (const b of BARROWS) expect(resolvable, `0006 cannot resolve ${b.k}`).toContain(b.k);
+    // Every target it maps onto is a real set — a typo alias pointing nowhere would
+    // rename a tick to a key nothing renders.
+    const keys = new Set(BARROWS.map((b) => b.k));
+    for (const b of brothers) expect(keys, `0006 maps ${b.pattern} nowhere`).toContain(b.setKey);
   });
 });
 

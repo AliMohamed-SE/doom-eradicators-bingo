@@ -1,9 +1,17 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import { useApp, patchContribs } from "./app-provider";
 import { setTileContribs, setTileItemOwners } from "@/app/actions";
-import { progressSpec, itemOwners, tickCredit, fmtNum, type Target } from "@/lib/scoring";
+import {
+  progressSpec,
+  itemOwners,
+  tickCredit,
+  derivedCounts,
+  fmtNum,
+  type Target,
+} from "@/lib/scoring";
 import {
   cleanContribRows,
   cleanItemOwnerRows,
@@ -54,6 +62,14 @@ interface Box {
   k: string;
   n: string;
   alt: boolean;
+  /** sprite, on the tiles whose boxes are pictures (Barrows) */
+  img?: string;
+  /**
+   * Which set the box belongs to, on a `sets` target — a heading is printed whenever
+   * it changes. 24 unlabelled pickers in a row is not something a leader can steer;
+   * with the six brothers called out it is six groups of four.
+   */
+  group?: string;
 }
 
 export function ContribEditor({
@@ -76,10 +92,17 @@ export function ContribEditor({
 
   const boxes: Box[] = useMemo(
     () => [
-      ...spec.items.map((i) => ({ k: i.k, n: i.n, alt: false })),
-      ...spec.alt.map((i) => ({ k: i.k, n: i.n, alt: true })),
+      // Grouped where the target has sets, otherwise the flat list of items — either
+      // way in the same order the tile renders them, so a leader reads down the
+      // popup and down the tile the same way.
+      ...(spec.sets.length
+        ? spec.sets.flatMap((set) =>
+            set.items.map((i) => ({ k: i.k, n: i.n, img: i.img, alt: false, group: set.n })),
+          )
+        : spec.items.map((i) => ({ k: i.k, n: i.n, img: i.img, alt: false }))),
+      ...spec.alt.map((i) => ({ k: i.k, n: i.n, img: i.img, alt: true })),
     ],
-    [spec.items, spec.alt],
+    [spec.sets, spec.items, spec.alt],
   );
 
   // "" means nobody owns that box — the value a <select> can actually hold.
@@ -127,17 +150,20 @@ export function ContribEditor({
   const sum = showNumbers ? contribSum(countRows) : 0;
 
   // What the boxes are worth per player, for the read-only figure next to each name
-  // on a checklist target. Same rule the server recounts with.
-  const derived = useMemo(() => {
-    const map: Record<string, string> = {};
-    const owned = Object.fromEntries(
-      Object.entries(owners).filter(([, v]) => v),
-    ) as Record<string, string>;
-    for (const pid of new Set(Object.values(owned))) {
-      map[pid] = String(tickCredit(target, owned, pid));
-    }
-    return map;
-  }, [owners, target]);
+  // on a checklist target. Same rule the server recounts with — and on a set target
+  // it moves for everyone as soon as a reassignment changes which set leads, which
+  // is exactly why it is derived here rather than read off the saved counts.
+  const derived = useMemo(
+    () =>
+      derivedCounts(
+        target,
+        Object.fromEntries(Object.entries(owners).filter(([, v]) => v)) as Record<
+          string,
+          string
+        >,
+      ),
+    [owners, target],
+  );
 
   const setCount = (pid: string, raw: string) =>
     setCounts((c) => ({ ...c, [pid]: raw.replace(/[^0-9]/g, "").slice(0, 7) }));
@@ -177,13 +203,17 @@ export function ContribEditor({
       }
 
       // Mirror the server's own arithmetic rather than guessing: numbers sent means the
-      // grid replaced the breakdown outright, otherwise only the players whose boxes
-      // moved were recounted from their ticks.
+      // grid replaced the breakdown outright; a set target is recounted whole, since
+      // moving one box can change which set leads and so what everyone else's boxes
+      // are worth; otherwise only the players whose boxes moved were recounted.
       const { owners: nextOwners, touched } = applyItemOwners(savedOwners, ownerRows);
-      const nextCounts = showNumbers
-        ? Object.fromEntries(countRows.map((r) => [r.playerId, r.count]))
-        : { ...savedCounts };
-      if (!showNumbers) {
+      let nextCounts: Record<string, number>;
+      if (showNumbers) {
+        nextCounts = Object.fromEntries(countRows.map((r) => [r.playerId, r.count]));
+      } else if (spec.sets.length) {
+        nextCounts = derivedCounts(target, nextOwners);
+      } else {
+        nextCounts = { ...savedCounts };
         for (const pid of touched) nextCounts[pid] = tickCredit(target, nextOwners, pid);
       }
       run(async () => {}, patchContribs(id, {
@@ -223,16 +253,32 @@ export function ContribEditor({
         <div className="grid min-h-0 flex-1 content-start gap-[8px] overflow-y-auto">
           {boxes.length > 0 && (
             <div className="grid gap-[6px]">
-              {boxes.map((b) => (
+              {boxes.map((b, i) => (
+                <div key={b.k} className="grid gap-[6px]">
+                {b.group && b.group !== boxes[i - 1]?.group && (
+                  <div className="mt-[4px] font-mono text-[11px] text-amber-body">
+                    {b.group.toUpperCase()}
+                  </div>
+                )}
                 <label
-                  key={b.k}
                   className={cn(
                     "grid gap-[5px] border-2 bg-surface-inset p-[9px]",
                     b.alt ? "border-amber-border" : "border-border-default",
                   )}
                 >
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="text-[15px] leading-[1.2] text-ink">{b.n}</span>
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-[7px]">
+                      {b.img && (
+                        <Image
+                          src={b.img}
+                          alt=""
+                          width={22}
+                          height={22}
+                          className="pixelated h-[22px] w-[22px] flex-none object-contain"
+                        />
+                      )}
+                      <span className="truncate text-[15px] leading-[1.2] text-ink">{b.n}</span>
+                    </span>
                     {b.alt && (
                       <span className="shrink-0 border border-amber-border bg-amber-bg px-[6px] py-[3px] font-mono text-[10px] text-amber-text">
                         CLEARS IT
@@ -249,11 +295,12 @@ export function ContribEditor({
                     {players.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
-                        {derived[p.id] ? ` · ${derived[p.id]}` : ""}
+                        {derived[p.id] ? ` · ${fmtNum(derived[p.id])}` : ""}
                       </option>
                     ))}
                   </select>
                 </label>
+                </div>
               ))}
             </div>
           )}

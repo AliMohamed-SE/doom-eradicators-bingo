@@ -17,6 +17,9 @@ import {
 } from "@/lib/board-data";
 import {
   goalOf,
+  setsOf,
+  derivedCounts,
+  completingItems,
   findTarget,
   progressSpec,
   completionAfter,
@@ -234,7 +237,7 @@ async function canTouch(
   playerId: string,
   leader: boolean,
 ): Promise<{ ok: boolean; cur: number }> {
-  const [claim, mine] = await Promise.all([
+  const [claim, mine, ticks] = await Promise.all([
     db
       .from("tile_claims")
       .select("tile_id")
@@ -247,9 +250,20 @@ async function canTouch(
       .eq("tile_id", tileId)
       .eq("player_id", playerId)
       .maybeSingle(),
+    // A tick with no count behind it is not a contradiction on a set target: only the
+    // leading set is worth anything, so somebody else finding their third Dharok piece
+    // takes an Ahrim holder's count to zero without touching their tick. The third
+    // clause alone would then lock that player out of the box they own, which is the
+    // one thing this gate exists to keep open.
+    db
+      .from("tile_items")
+      .select("item_key")
+      .eq("tile_id", tileId)
+      .eq("player_id", playerId)
+      .limit(1),
   ]);
   const cur = mine.data?.count ?? 0;
-  return { ok: leader || !!claim.data || cur > 0, cur };
+  return { ok: leader || !!claim.data || cur > 0 || !!ticks.data?.length, cur };
 }
 
 /** Write one player's count for a target, deleting the row when it hits zero. */
@@ -399,8 +413,15 @@ export async function toggleItem(tileId: string, itemKey: string, on: boolean) {
  * box it overwrites the manual count — but ticking an `alt` is worth the full goal,
  * so the tile completes on the same call and becomes read-only, which means there is
  * no path back that could strip a count someone typed.
+ *
+ * A `sets` target cannot be done one player at a time and diverts to the whole-tile
+ * recount below: only the leading set's pieces are worth anything (tickCredit), so
+ * one person ticking Dharok's third piece changes what everybody holding an Ahrim
+ * piece is owed. Recounting just the caller would leave those stale, and completion
+ * is a re-sum of exactly these rows.
  */
 async function recountItems(db: SupabaseClient, target: Target, playerId: string) {
+  if (setsOf(target).length) return recountSetTile(db, target);
   const rows = await db
     .from("tile_items")
     .select("item_key")
@@ -408,6 +429,46 @@ async function recountItems(db: SupabaseClient, target: Target, playerId: string
     .eq("player_id", playerId);
   const owners = Object.fromEntries((rows.data ?? []).map((r) => [r.item_key, playerId]));
   await setCount(db, target.id, playerId, tickCredit(target, owners));
+}
+
+/**
+ * Rewrite every count on a `sets` target from its ticks — the whole breakdown, in
+ * one pass, from one read of the boxes.
+ *
+ * Same shape as setTileContribs for the same reason: with no transaction available,
+ * upserting what survives before deleting what is gone means a failure between the
+ * two leaves a stale extra contributor rather than a tile whose progress vanished.
+ * Safe to overwrite counts wholesale because a set tile is `mode: "checklist"`, so
+ * logProgress and setTileContribs both refuse it and ticks are the only source.
+ */
+async function recountSetTile(db: SupabaseClient, target: Target) {
+  const rows = await db
+    .from("tile_items")
+    .select("item_key, player_id")
+    .eq("tile_id", target.id);
+  const owners: Record<string, string> = Object.fromEntries(
+    (rows.data ?? []).map((r) => [r.item_key as string, r.player_id as string]),
+  );
+  const counts = derivedCounts(target, owners);
+  const keep = Object.keys(counts);
+  if (keep.length) {
+    await db.from("tile_progress").upsert(
+      keep.map((pid) => ({
+        tile_id: target.id,
+        player_id: pid,
+        count: counts[pid],
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: "tile_id,player_id" },
+    );
+    await db
+      .from("tile_progress")
+      .delete()
+      .eq("tile_id", target.id)
+      .not("player_id", "in", `(${keep.map((pid) => `"${pid}"`).join(",")})`);
+  } else {
+    await db.from("tile_progress").delete().eq("tile_id", target.id);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -555,8 +616,11 @@ export async function setTileItemOwners(tileId: string, rows: ItemOwnerRow[]) {
 
   // Recompute rather than nudge, for the reason toggleItem gives: with no locking and
   // no stored procedures, an idempotent recount is the only thing stopping two tabs
-  // from leaving ticks and counts permanently out of step.
-  for (const pid of touched) await recountItems(db, target, pid);
+  // from leaving ticks and counts permanently out of step. A set tile is recounted
+  // whole and once — every count on it can move, and `touched` is not the list of
+  // players it moved for.
+  if (setsOf(target).length) await recountSetTile(db, target);
+  else for (const pid of touched) await recountItems(db, target, pid);
   await syncCompletion(db, target, id);
   refresh();
   return { ok: true };
@@ -604,8 +668,11 @@ async function fillDoneTile(db: SupabaseClient, tileId: string, leaderId: string
       .from("tile_progress")
       .insert({ tile_id: tileId, player_id: leaderId, count: goal, updated_at: new Date().toISOString() });
     // Keep ticks and counts in step: a checklist tile forced done shows its boxes
-    // ticked, not a full count against empty boxes.
-    const items = target ? progressSpec(target).items.slice(0, goal) : [];
+    // ticked, not a full count against empty boxes. On a set tile that means one
+    // whole set rather than the first `goal` boxes in the flattened list — those
+    // happen to be the same today and would stop being the moment a set's length
+    // changed.
+    const items = target ? completingItems(target) : [];
     if (items.length) {
       await db
         .from("tile_items")

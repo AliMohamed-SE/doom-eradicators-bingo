@@ -113,6 +113,36 @@ export interface ItemDef {
   k: string;
   /** label shown on the tick box */
   n: string;
+  /**
+   * Sprite for the box, when the objective is read as pictures rather than a list
+   * of names. Only the set grid uses it (see ItemSet); a plain checklist row shows
+   * the label and nothing else.
+   */
+  img?: string;
+}
+
+/**
+ * One complete alternative route through a tile's boxes: ANY ONE of a tile's sets,
+ * ticked in full, finishes the objective on its own.
+ *
+ * This is not the same thing as an `alt` box. An `alt` is one much rarer item that
+ * substitutes for the whole grind; a set is a full grind of its own, and the tile
+ * asks for whichever one the drops happen to give you. Barrows is the case that
+ * needs it: six brothers, four pieces each, the drop is random and untargetable,
+ * and the tile wants four pieces of the SAME brother.
+ */
+export interface ItemSet {
+  /** stable id, and the prefix of every one of its item keys */
+  k: string;
+  /** full name, for the "you finished this one" readout */
+  n: string;
+  /** column header in the grid — keep it short, it sits over a ~50px cell */
+  short: string;
+  /**
+   * The pieces, all required. Every set on a tile must be the same length (that
+   * length is the tile's goal) and index-aligned with the tile's `slots`.
+   */
+  items: ItemDef[];
 }
 
 /**
@@ -137,9 +167,31 @@ export interface TileTracking {
    */
   items?: ItemDef[];
   /**
+   * Mutually alternative sets of items, ANY ONE of which finishes the tile when it
+   * is ticked in full. Mutually exclusive with `items` — the flattened pieces ARE
+   * the tile's boxes (itemsOf in lib/scoring.ts), and the goal is one set's length,
+   * not the total.
+   *
+   * Only for an objective whose parts are identifiable but whose route is not
+   * chosen up front. "4x pieces of one Barrows brother" is the case: the drop is
+   * random, duplicates are worthless, and which brother you end up completing is
+   * decided by what fell — so the app tracks all 24 pieces and works out which set
+   * the team is closest to (leadingSet in lib/scoring.ts).
+   */
+  sets?: ItemSet[];
+  /**
+   * Row labels for a `sets` grid, index-aligned with every set's items — the grid
+   * is pieces down, sets across. Purely presentational.
+   */
+  slots?: string[];
+  /**
    * A shared free-text box on the tile. Only for objectives where the boxes are
-   * meaningless without a decision recorded alongside them — a Barrows set has to
-   * be four pieces of ONE brother, and which brother is a team choice.
+   * meaningless without a decision recorded alongside them.
+   *
+   * Nothing asks for one today: the last of them was Me and My Brothers, where a
+   * leader typed which brother the team was going for, and `sets` now derives that
+   * from the ticks instead. The machinery is kept — tile_notes, setTileNote,
+   * TileNote — because the next objective of that shape will want it.
    */
   note?: NoteField;
   /**
@@ -579,6 +631,82 @@ export const TILE_RULES: Record<string, string[]> = {
  * Item labels are the in-game item names so a tick is unambiguous. The keys are
  * database primary keys — see ItemDef.
  */
+/**
+ * The four equipment slots a Barrows brother drops, in grid-row order. Index-aligned
+ * with every set in BARROWS, which is what lets the grid put helms on one row.
+ */
+export const BARROWS_SLOT_LABELS = ["Helm", "Body", "Legs", "Weapon"];
+const BARROWS_SLOTS = ["helm", "body", "legs", "weapon"] as const;
+
+/**
+ * The six Barrows brothers and their four pieces each — 24 boxes, of which any four
+ * matching ones finish the tile.
+ *
+ * The item keys are DATABASE PRIMARY KEYS (tile_items.item_key), so they are
+ * `<brother>_<slot>` and permanent; migration 0006 renames the four generic keys the
+ * tile used to have onto them. The keys and sprite paths are generated from the same
+ * pair of names on purpose: 24 of each written out by hand is 48 chances to typo a
+ * primary key, and the piece names — which are the part a human has to check against
+ * the game — stay right here in plain sight, in slot order.
+ *
+ * Piece names are the in-game item names, per the wiki's Barrows equipment page. The
+ * sprites are the same items' inventory icons, in public/sprites/barrows.
+ */
+const barrowsSet = (
+  k: string,
+  n: string,
+  short: string,
+  pieces: readonly [string, string, string, string],
+): ItemSet => ({
+  k,
+  n,
+  short,
+  items: BARROWS_SLOTS.map((slot, i) => ({
+    k: `${k}_${slot}`,
+    n: pieces[i],
+    img: `/sprites/barrows/${k}_${slot}.png`,
+  })),
+});
+
+export const BARROWS: ItemSet[] = [
+  barrowsSet("ahrim", "Ahrim the Blighted", "AHRIM", [
+    "Ahrim's hood",
+    "Ahrim's robetop",
+    "Ahrim's robeskirt",
+    "Ahrim's staff",
+  ]),
+  barrowsSet("dharok", "Dharok the Wretched", "DHAROK", [
+    "Dharok's helm",
+    "Dharok's platebody",
+    "Dharok's platelegs",
+    "Dharok's greataxe",
+  ]),
+  barrowsSet("guthan", "Guthan the Infested", "GUTHAN", [
+    "Guthan's helm",
+    "Guthan's platebody",
+    "Guthan's chainskirt",
+    "Guthan's warspear",
+  ]),
+  barrowsSet("karil", "Karil the Tainted", "KARIL", [
+    "Karil's coif",
+    "Karil's leathertop",
+    "Karil's leatherskirt",
+    "Karil's crossbow",
+  ]),
+  barrowsSet("torag", "Torag the Corrupted", "TORAG", [
+    "Torag's helm",
+    "Torag's platebody",
+    "Torag's platelegs",
+    "Torag's hammers",
+  ]),
+  barrowsSet("verac", "Verac the Defiled", "VERAC", [
+    "Verac's helm",
+    "Verac's brassard",
+    "Verac's plateskirt",
+    "Verac's flail",
+  ]),
+];
+
 export const TILE_TRACKING: Record<string, TileTracking> = {
   // --- every named part required, and the parts are individually identifiable ---
   clifford_s_revenge: { items: [
@@ -597,17 +725,11 @@ export const TILE_TRACKING: Record<string, TileTracking> = {
     { k: "top", n: "Elder chaos top" },
     { k: "robe", n: "Elder chaos robe" },
   ]},
-  // Four slots, and they must all be the SAME brother — hence the note box. The
-  // labels stay generic because the note says whose set it is.
-  me_and_my_brothers: {
-    note: { label: "WHICH SET", placeholder: "Dharok, Karil, Ahrim…" },
-    items: [
-      { k: "helm", n: "Helm / hood / coif" },
-      { k: "body", n: "Body / top" },
-      { k: "legs", n: "Legs / skirt" },
-      { k: "weapon", n: "Weapon" },
-    ],
-  },
+  // Four pieces of the SAME brother. Every piece of every brother is a box, because
+  // a Barrows chest hands out whichever piece it feels like and the team finishes
+  // whichever set gets there first — see the `sets` doc on TileTracking, and
+  // BARROWS below for why the keys and images are generated rather than typed.
+  me_and_my_brothers: { slots: BARROWS_SLOT_LABELS, sets: BARROWS },
   // Three components, not four: the tile rule says a light OR heavy frame works,
   // and a light ballista is limbs + spring + light frame with no monkey tail.
   monkey_business_3: { items: [
