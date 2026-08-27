@@ -4,6 +4,19 @@ import { useApp } from "./app-provider";
 import { findTarget, goalOf, progressTotal, fmtCompact } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
 
+/**
+ * The contributions page: how many TILES each person has put work into.
+ *
+ * The unit is deliberately the tile, not the count. Every tile's number means
+ * something different — 10,000 astral runes, 500 monkey laps, 1 dragon warhammer —
+ * so summing them across tiles measures nothing: it used to rank whoever happened to
+ * be on the rune grind above everybody else on the board put together, and read
+ * "6,000 logged" as if that were six thousand contributions rather than one
+ * participation tile. A tile counts once for each person who worked on it, and the
+ * per-tile figure stays on its own row where its goal is next to it and it means
+ * what it says.
+ */
+
 interface Row {
   id: string;
   name: string;
@@ -21,9 +34,9 @@ export function ContribView() {
   const cards = players
     .map((p) => {
       const tiles: Row[] = [];
-      let logged = 0;
       let solo = 0;
-      let partial = 0;
+      let shared = 0;
+      let wip = 0;
 
       Object.keys(state.progress).forEach((tileId) => {
         const mine = state.progress[tileId]?.[p.id] ?? 0;
@@ -33,9 +46,9 @@ export function ContribView() {
         const total = progressTotal(state.progress, tileId);
         const done = state.done.has(tileId);
         const isSolo = done && mine >= total;
-        logged += mine;
         if (isSolo) solo++;
-        else if (done) partial++;
+        else if (done) shared++;
+        else wip++;
         tiles.push({
           id: tileId,
           name: t.kind === "bridge" ? t.name : t.n,
@@ -49,16 +62,25 @@ export function ContribView() {
       });
 
       tiles.sort((a, b) => Number(b.done) - Number(a.done) || b.mine - a.mine);
-      return { p, tiles, logged, solo, partial };
+      return { p, tiles, solo, shared, wip };
     })
-    .sort((a, b) => b.logged - a.logged);
+    // Tiles worked on first, then finished ones, then the ones they carried alone.
+    // Nothing here is a sum of counts, for the reason at the top of the file.
+    .sort(
+      (a, b) =>
+        b.tiles.length - a.tiles.length ||
+        b.solo + b.shared - (a.solo + a.shared) ||
+        b.solo - a.solo ||
+        a.p.name.localeCompare(b.p.name),
+    );
 
   return (
     <div>
       <div className="mb-3 border-2 border-border-default panel-gradient p-3">
         <div className="font-mono text-[13px] text-orange">CONTRIBUTIONS</div>
         <div className="mt-[6px] flex flex-wrap items-center gap-x-[14px] gap-y-[4px] text-[14px] text-ink-dim2 [text-wrap:pretty]">
-          Who logged what across the board.
+          How many tiles each person has worked on — a tile counts once, whatever the
+          size of its goal.
           <span className="flex items-center gap-[6px]">
             <span className="h-[10px] w-[10px] border border-green-border bg-green-bg" /> finished solo
           </span>
@@ -72,14 +94,16 @@ export function ContribView() {
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3">
-        {cards.map(({ p, tiles, logged, solo, partial }) => (
+        {cards.map(({ p, tiles, solo, shared, wip }) => (
           <div key={p.id} className="border-2 border-border-default region-gradient p-3">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-[16px] text-amber-soft">{p.name}</span>
-              <span className="font-mono text-[12px] text-ink-dim">{logged} logged</span>
+              <span className="font-mono text-[12px] text-ink-dim">
+                {tiles.length} {tiles.length === 1 ? "tile" : "tiles"}
+              </span>
             </div>
             <div className="mt-[3px] font-mono text-[11px] text-ink-dim">
-              {solo} solo · {partial} shared · {tiles.length} tiles
+              {solo} solo · {shared} shared · {wip} in progress
             </div>
 
             {tiles.length === 0 ? (

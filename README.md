@@ -154,6 +154,14 @@ Two extras hang off `TILE_TRACKING`:
   Only Me and My Brothers uses it: the four pieces have to be the same brother, so the team records
   which one.
 
+A separate map, `TILE_PARTY`, marks the targets that are one run by a **group** and says how many
+people that takes — today just The 416 Special, a ToB 5-man, at 5. It is not a goal and nothing about
+completion reads it: the tile's goal still just says whether the run happened. It tells the leader
+editor to ask *who was in the group* instead of *how many each*, and the drawer to print
+"Group tile · 5 of 5 credited" rather than a raw `5 / 1`. Kept out of `TILE_TRACKING` deliberately —
+that map is about a target's boxes, it is mirrored key-for-key by migration `0004`, and membership in
+it is also read as "this target's goal does not come from its own prose".
+
 `tile_progress.count` stays the single source of truth for totals — `tile_items` is attribution
 layered on top, which is why counts logged before item tracking existed still count. Ticking
 recomputes the owner's count from their rows rather than nudging it by a delta, so a double tap on a
@@ -162,6 +170,12 @@ slow connection cannot count twice.
 Goals come from `goalOf()`, in order: the number of `items`, the throughput target `i.hr.got`, the
 leading `Nx` in the objective text, then 1. `scoring.test.ts` pins
 the resolved goal of all 81 tiles and 12 bridges, so a reworded objective can't move one silently.
+
+The **contributions** tab counts *tiles*, never the sum of counts. Every tile's number means a
+different thing — 10,000 astral runes, 500 monkey laps, one dragon warhammer — so adding them up
+across tiles measures nothing, and used to rank whoever happened to be on the rune grind above
+everybody else put together. A tile counts once for each person who worked on it; the per-tile figure
+stays on its own row, next to that tile's goal.
 
 ### Fixing who did what
 
@@ -176,6 +190,7 @@ It takes the shape of the tile, rather than offering a mode:
 | tile | the editor shows | action |
 | --- | --- | --- |
 | `checklist` | a player picker per named box; counts follow the boxes (`tickCredit`) | `setTileItemOwners` |
+| `party` | a tick per person, the whole roster listed, with an `n OF 5 CREDITED` readout | `setTileContribs` |
 | `count` / `bulk` | a number per player, with a `SUM n / goal` readout | `setTileContribs` |
 
 Notes worth knowing:
@@ -184,6 +199,9 @@ Notes worth knowing:
   roster, including seats with **no Discord linked** — they did the drop, they just haven't signed in.
 - Setting someone to 0 (or leaving them out) deletes their row, so "0 logged" and "no contributor"
   stay the same state.
+- A party target stores one apiece, which is over a goal of 1 and correct: five people were in one
+  raid, and completion is `total >= goal`. Typing numbers there could only ever produce the same five
+  1s with a `4 OVER` warning attached, which is why the ticks replace the grid.
 - A counter with an `alt` box is both shapes at once, and they disagree by rule: an `alt` owner is
   credited the whole goal. The numbers grid hides itself while one is assigned rather than showing
   figures the save would overwrite.

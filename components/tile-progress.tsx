@@ -6,6 +6,7 @@ import { useConfirm } from "./confirm";
 import {
   progressSpec,
   progressTotal,
+  contributors,
   itemOwners,
   tickCredit,
   fmtNum,
@@ -42,6 +43,9 @@ export function TileProgress({
   const spec = progressSpec(target);
   const total = progressTotal(state.progress, id);
   const mine = state.progress[id]?.[uid] ?? 0;
+  // How many people are credited, for a party target's headcount line. Everyone with
+  // a count, which for a party target is everyone who was in the group.
+  const credited = contributors(state.progress, id).length;
 
   const head = (
     <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-[4px]">
@@ -112,14 +116,23 @@ export function TileProgress({
     );
   }
 
-  // count — unchanged behaviour, just relocated
+  // count
   return (
     <div className="flex flex-wrap items-center gap-[10px] border-2 border-border-default bg-surface-inset p-[10px]">
       <div className="flex-1 basis-[120px]">
         <div className="font-mono text-[11px] text-ink-dim">PROGRESS</div>
         <div className="mt-[5px] font-mono text-[18px] text-yellow">
-          {total} / {spec.goal}
+          {/* A party target's total is a headcount, not a quantity: five people were
+              credited for one run, and the goal only ever says whether it happened.
+              Printing the raw total would read "5 / 1" on a tile that is exactly
+              right, so it is clamped and the headcount gets its own line. */}
+          {spec.party > 0 ? Math.min(total, spec.goal) : total} / {spec.goal}
         </div>
+        {spec.party > 0 && (
+          <div className="mt-[3px] text-[13px] text-ink-dim2">
+            Group tile · {credited} of {spec.party} credited
+          </div>
+        )}
       </div>
       {canProgress && (
         <div className="flex items-center gap-2">

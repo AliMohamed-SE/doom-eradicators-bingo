@@ -5,6 +5,7 @@ import {
   BRIDGES,
   FREE_SPACE,
   TILE_TRACKING,
+  TILE_PARTY,
   BARROWS,
   BARROWS_SLOT_LABELS,
 } from "./board-data";
@@ -18,6 +19,7 @@ import {
   itemsOf,
   setsOf,
   slotsOf,
+  partyOf,
   setProgress,
   leadingSet,
   completedSet,
@@ -151,7 +153,7 @@ describe("goalOf", () => {
       lord_of_the_rings: 4,
       return_of_the_money_dragon: 1,
       eye_of_the_occult: 1,
-      monkey_business_3: 3,
+      monkey_business_3: 4,
       curved_to_the_left: 1,
       kraken_me_up: 5,
       i_m_huffin_that_shit: 1,
@@ -308,6 +310,54 @@ describe("progressSpec", () => {
     expect(Object.keys(TILE_TRACKING).filter((id) => setsOf({ id }).length)).toEqual([
       "me_and_my_brothers",
     ]);
+  });
+});
+
+/*
+ * The ballista shipped with three boxes and a goal of 3, which let the tile read
+ * "done" on an unstrung ballista: limbs + spring + frame is not the weapon, and the
+ * monkey tail that finishes it was simply missing. Pinned here because the parts of a
+ * craft are a wiki fact, not a judgement call — see the tile's `i` note.
+ */
+describe("the ballista is all four parts", () => {
+  it("asks for the monkey tail too", () => {
+    const t = target("monkey_business_3");
+    expect(itemsOf(t).map((i) => i.k)).toEqual(["limbs", "spring", "frame", "tail"]);
+    expect(goalOf(t)).toBe(4);
+    // Every part has to be findable on the estimate table, or the drawer tells people
+    // to grind three things for a four-thing tile.
+    expect(t.i?.d?.some((d) => /monkey tail/i.test(d.n))).toBe(true);
+  });
+});
+
+/*
+ * A party target is one run by a fixed group. Nothing about completion reads the
+ * number — the tile's goal still says whether the run happened — so these assertions
+ * are about the number staying separate from the goal.
+ */
+describe("party targets", () => {
+  it("knows how many the 416 takes, and that nobody else is one", () => {
+    expect(partyOf(target("the_416_special"))).toBe(5);
+    expect(progressSpec(target("the_416_special"))).toMatchObject({
+      mode: "count",
+      goal: 1,
+      party: 5,
+    });
+    expect(partyOf(target("kraken_me_up"))).toBe(0);
+    expect(partyOf(null)).toBe(0);
+    expect(progressSpec(target("kraken_me_up")).party).toBe(0);
+  });
+
+  it("keys a real target, and never one whose progress comes from boxes", () => {
+    for (const id of Object.keys(TILE_PARTY)) {
+      expect(findTarget(id), `no target ${id}`).not.toBeNull();
+      expect(TILE_PARTY[id], `${id} is a party of one`).toBeGreaterThan(1);
+      // A checklist target's counts come from its ticks (tickCredit), so a "one each"
+      // party save would be overwritten by the next tick. The editor picks one shape.
+      expect(itemsOf({ id }), `${id} is a checklist target`).toHaveLength(0);
+      // An alt box credits its owner the whole goal, which is the opposite rule.
+      expect(TILE_TRACKING[id]?.alt, `${id} has an alt box`).toBeUndefined();
+    }
   });
 });
 

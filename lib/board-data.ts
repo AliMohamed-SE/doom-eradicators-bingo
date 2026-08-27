@@ -259,13 +259,14 @@ export const REGIONS: Region[] = [
   { id: "north_east", name: "Kandarin", tiles: [
     t("Eye of the Occult", "Get 1x Occult from Thermonuclear Smoke Devil", { s: "Thermonuclear Smoke Devil", r: "1/350", w: "https://oldschool.runescape.wiki/w/Occult_necklace",
       i: { need: 1, c: "w", d: [{ n: "Thermonuclear Smoke Devil", r: 350, k: 35 }] } }),
-    t("Monkey Business 3", "Complete a full ballista", { s: "Demonic Gorillas", r: "Heavy/light frames, limbs and spring have separate rates.", w: "https://oldschool.runescape.wiki/w/Ballista",
-      i: { c: "w", fix: 18, d: [
+    t("Monkey Business 3", "Complete a full ballista", { s: "Demonic Gorillas", r: "Monkey tail, heavy/light frames, limbs and spring have separate rates.", w: "https://oldschool.runescape.wiki/w/Ballista",
+      i: { c: "w", fix: 31, d: [
         { n: "Ballista limbs", r: 500, k: 60 },
         { n: "Ballista spring", r: 500, k: 60 },
         { n: "Light frame", r: 750, k: 60 },
-        { n: "Heavy frame", r: 1500, k: 60 }
-      ], note: "A light ballista needs limbs + spring + light frame, so it is three separate grinds off the same kills — roughly 1,100 gorillas for the set. Heavy frame is four times rarer." } }),
+        { n: "Heavy frame", r: 1500, k: 60 },
+        { n: "Monkey tail", r: 1500, k: 60 }
+      ], note: "Four parts, not three: an unstrung ballista is limbs + spring + a frame, and a MONKEY TAIL is what turns it into the weapon — no tail, no ballista. All four come off the same kills, so expect roughly 1,900 gorillas for the set. The tail is the long pole at 1/1,500, and a heavy frame is the same rate if you want that version." } }),
     t("Curved to the Left", "Get 1x Warped Sceptre", { s: "Warped Terrorbirds / Tortoises", r: "1/320", w: "https://oldschool.runescape.wiki/w/Warped_sceptre",
       i: { need: 1, c: "w", d: [
         { n: "Warped terrorbirds", r: 320, k: 110 },
@@ -730,12 +731,16 @@ export const TILE_TRACKING: Record<string, TileTracking> = {
   // whichever set gets there first — see the `sets` doc on TileTracking, and
   // BARROWS below for why the keys and images are generated rather than typed.
   me_and_my_brothers: { slots: BARROWS_SLOT_LABELS, sets: BARROWS },
-  // Three components, not four: the tile rule says a light OR heavy frame works,
-  // and a light ballista is limbs + spring + light frame with no monkey tail.
+  // Four components. The frame is one box because the tile rule says a light OR heavy
+  // frame works, but the MONKEY TAIL is its own: limbs + spring + frame only makes an
+  // UNSTRUNG ballista, and the tail is what turns that into the weapon the tile asks
+  // for. It was missing here, so the tile read 3/3 done on a ballista nobody could
+  // have built. 1/1,500 off the same gorillas — see the tile's `i` note.
   monkey_business_3: { items: [
     { k: "limbs", n: "Ballista limbs" },
     { k: "spring", n: "Ballista spring" },
     { k: "frame", n: "Light or heavy frame" },
+    { k: "tail", n: "Monkey tail" },
   ]},
   wardn_t_you_believe_it: { items: [
     { k: "shard_1", n: "Shard 1 — Chaos Fanatic" },
@@ -761,6 +766,33 @@ export const TILE_TRACKING: Record<string, TileTracking> = {
   masori_chaps_mia: { alt: [{ k: "shadow", n: "Tumeken's shadow" }] },
   justmi: { alt: [{ k: "scythe", n: "Scythe of Vitur" }] },
   bridge_cheese_and_fire: { alt: [{ k: "infernal", n: "Infernal cape" }] },
+};
+
+/**
+ * Targets that are done by a GROUP in one sitting, and how many people that takes.
+ *
+ * A handful of objectives are not a grind anyone accumulates — they are one run that
+ * simply cannot happen with fewer people. "Complete a Theatre of Blood 5-man in gear
+ * not over 5m per person" is finished once, by five named people, and all five did
+ * it. The tile's goal stays 1 (it either happened or it did not), so the ordinary
+ * numbers grid would have a leader typing 1 into five boxes and then reading
+ * "SUM 5 / 1 · 4 OVER" — a warning about the correct answer.
+ *
+ * So the leader editor swaps the numbers for a "who was in the group" list and
+ * credits each member 1, and the drawer says how many of the party are credited
+ * instead of showing 5 / 1. See partyOf / ProgressSpec.party in lib/scoring.ts.
+ *
+ * Deliberately NOT part of TILE_TRACKING: that map is "how are this target's boxes
+ * entered", it is mirrored key-for-key by the backfill in migration 0004, and
+ * membership in it is also read as "this target's goal does not come from its own
+ * prose" (see lib/scoring.test.ts). Party size is none of those things.
+ *
+ * The number is the size of the group the objective names, not a cap on generosity —
+ * crediting more than it is allowed, and just flagged, because a leader looking at
+ * the actual raid knows better than this table does.
+ */
+export const TILE_PARTY: Record<string, number> = {
+  the_416_special: 5,
 };
 
 export const FREE_SPACE = "free_space";

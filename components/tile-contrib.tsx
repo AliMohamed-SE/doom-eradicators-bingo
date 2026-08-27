@@ -31,11 +31,16 @@ import { cn } from "@/lib/cn";
  * that afterwards, which until now meant asking each person to re-log their own
  * count — on a finished tile, impossible.
  *
- * Two shapes, chosen from the target rather than offered as a mode:
+ * Three shapes, chosen from the target rather than offered as a mode:
  *
  *  - checklist  — a player picker per named box. The counts are derived from the
  *                 boxes (tickCredit), so numbers here would be a second, conflicting
  *                 source of truth.
+ *  - party      — a tick per person, because the objective is one run by a fixed
+ *                 group (a ToB 5-man) rather than anything anyone accumulates. Every
+ *                 member is credited 1 and the goal stays "did it happen", so typing
+ *                 numbers here could only ever produce the same five 1s with a
+ *                 "4 OVER" warning attached. See TILE_PARTY in lib/board-data.ts.
  *  - count/bulk — a number per player, and the numbers are the record.
  *
  * A plain counter with an `alt` box ("…or just a Shadow") is both, and the two
@@ -118,6 +123,13 @@ export function ContribEditor({
         .map(([pid, n]) => [pid, String(n)]),
     ),
   );
+  // Party targets only: who was in the group. Seeded from the saved counts because
+  // that is exactly how a party edit is stored — one apiece — so reopening the popup
+  // reads back the same names. Nobody is seeded from the crew: "I'm on this" is an
+  // intention, and this list is a statement about a run that happened.
+  const [members, setMembers] = useState<string[]>(() =>
+    players.filter((p) => (savedCounts[p.id] ?? 0) > 0).map((p) => p.id),
+  );
   // Whose rows the numbers grid shows. Everyone with a count or on the crew to begin
   // with; the picker at the bottom adds anyone else. Not the whole 17-seat roster,
   // because a leader fixing a three-way split should not have to scroll past 14 zeroes
@@ -134,7 +146,14 @@ export function ContribEditor({
 
   const playerIds = players.map((p) => p.id);
   const altOwned = spec.alt.some((a) => !!owners[a.k]);
-  const showNumbers = spec.mode !== "checklist" && !altOwned;
+  // The party list and the numbers grid ask incompatible questions, so exactly one of
+  // them shows. `alt` still overrides both, for the reason given at the top of the
+  // file: its owner is credited the whole goal, so any split shown here would be
+  // overwritten by the save.
+  const showParty = spec.party > 0 && spec.mode !== "checklist" && !altOwned;
+  const showNumbers = spec.mode !== "checklist" && !altOwned && !showParty;
+  /** Whether this save writes the counts column at all. */
+  const sendNumbers = showNumbers || showParty;
 
   const ownerRows: ItemOwnerRow[] = boxes.map((b) => ({
     itemKey: b.k,
@@ -142,8 +161,12 @@ export function ContribEditor({
   }));
   const ownersChanged = boxes.some((b) => (owners[b.k] || "") !== (savedOwners[b.k] ?? ""));
 
+  // One apiece for a party target: being in the group is the whole contribution, and
+  // the goal ("did it happen") is 1, so cleanContribRows keeps every member at 1.
   const countRows = cleanContribRows(
-    shown.map((pid) => ({ playerId: pid, count: parseInt(counts[pid] ?? "", 10) || 0 })),
+    showParty
+      ? members.map((pid) => ({ playerId: pid, count: 1 }))
+      : shown.map((pid) => ({ playerId: pid, count: parseInt(counts[pid] ?? "", 10) || 0 })),
     goal,
     playerIds,
   );
@@ -168,12 +191,19 @@ export function ContribEditor({
   const setCount = (pid: string, raw: string) =>
     setCounts((c) => ({ ...c, [pid]: raw.replace(/[^0-9]/g, "").slice(0, 7) }));
 
+  // Rebuilt in roster order rather than appended, so the list reads the same however
+  // the leader ticked it — the same reason `shown` is rebuilt in addPlayer below.
+  const toggleMember = (pid: string) =>
+    setMembers((m) =>
+      players.filter((p) => (p.id === pid ? !m.includes(pid) : m.includes(p.id))).map((p) => p.id),
+    );
+
   const addPlayer = (pid: string) => {
     if (!pid || shown.includes(pid)) return;
     setShown((s) => players.filter((p) => s.includes(p.id) || p.id === pid).map((p) => p.id));
   };
 
-  const dirty = ownersChanged || (showNumbers && changedCounts(savedCounts, countRows));
+  const dirty = ownersChanged || (sendNumbers && changedCounts(savedCounts, countRows));
 
   const save = () => {
     if (saving || !dirty) return;
@@ -193,7 +223,7 @@ export function ContribEditor({
           return;
         }
       }
-      if (showNumbers) {
+      if (sendNumbers) {
         const res = await setTileContribs(id, countRows);
         const failed = res && "error" in res ? res.error : "";
         if (failed) {
@@ -208,7 +238,7 @@ export function ContribEditor({
       // are worth; otherwise only the players whose boxes moved were recounted.
       const { owners: nextOwners, touched } = applyItemOwners(savedOwners, ownerRows);
       let nextCounts: Record<string, number>;
-      if (showNumbers) {
+      if (sendNumbers) {
         nextCounts = Object.fromEntries(countRows.map((r) => [r.playerId, r.count]));
       } else if (spec.sets.length) {
         nextCounts = derivedCounts(target, nextOwners);
@@ -246,7 +276,9 @@ export function ContribEditor({
         <div className="mt-1 mb-3 text-[13px] leading-[1.35] text-ink-dim [text-wrap:pretty]">
           {spec.mode === "checklist"
             ? `Say who got each one on "${name}". Counts follow the boxes.`
-            : `Set each person's share of the ${fmtNum(goal)}${spec.unit ? " " + spec.unit : ""} on "${name}".`}
+            : showParty
+              ? `Tick everyone who was in the group on "${name}". It takes ${spec.party}, and all of them get credit for the tile.`
+              : `Set each person's share of the ${fmtNum(goal)}${spec.unit ? " " + spec.unit : ""} on "${name}".`}
         </div>
 
         {/* The only scrolling region, so the footer stays above a phone keyboard */}
@@ -311,6 +343,66 @@ export function ContribEditor({
               {fmtNum(goal)}. Set it back to &ldquo;nobody&rdquo; to split the count by hand
               instead.
             </div>
+          )}
+
+          {showParty && (
+            <>
+              <div className="grid gap-[6px]">
+                {players.map((p) => {
+                  const on = members.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() => toggleMember(p.id)}
+                      className={cn(
+                        "flex min-h-[52px] cursor-pointer items-center gap-[9px] border-2 p-[9px_10px] text-left",
+                        on
+                          ? "border-green-border2 bg-green-bg3 text-green-text2"
+                          : "border-border-default bg-surface-btn text-ink",
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "flex h-[24px] w-[24px] shrink-0 items-center justify-center border-2 font-mono text-[14px] leading-none",
+                          on
+                            ? "border-green-border bg-green-bg text-green-soft"
+                            : "border-border-default bg-surface-inset text-ink-faint",
+                        )}
+                      >
+                        {on ? "✓" : ""}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] leading-[1.2]">{p.name}</span>
+                        <span className="mt-[2px] block truncate font-mono text-[12px] text-ink-faint">
+                          {on ? "in the group" : "not in it"}
+                          {p.linked ? "" : " · not signed in"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div
+                className={cn(
+                  "border-2 p-[9px] font-mono text-[12px]",
+                  members.length > spec.party
+                    ? "border-red-border bg-red-bg text-red-text"
+                    : "border-border-default bg-surface-inset text-ink-dim2",
+                )}
+              >
+                {members.length} OF {spec.party} CREDITED
+                {members.length > spec.party
+                  ? ` · ${members.length - spec.party} MORE THAN IT TAKES`
+                  : members.length < spec.party
+                    ? ` · ${spec.party - members.length} STILL MISSING`
+                    : " · FULL GROUP"}
+              </div>
+            </>
           )}
 
           {showNumbers && (

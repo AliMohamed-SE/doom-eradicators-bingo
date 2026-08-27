@@ -91,6 +91,30 @@ describe("cleanContribRows", () => {
   });
 });
 
+/*
+ * A party target — one run by a fixed group, "Complete a Theatre of Blood 5-man" —
+ * is stored as one apiece, and its goal is 1 because the goal only says whether the
+ * run happened. That combination has to survive the clamp, or the leader editor's
+ * "who was in the group" list could credit exactly one of the five.
+ */
+describe("a party target's one-apiece rows", () => {
+  it("keeps every member at 1 against a goal of 1", () => {
+    const rows = cleanContribRows(
+      IDS.map((playerId) => ({ playerId, count: 1 })),
+      1,
+      IDS,
+    );
+    expect(rows).toEqual([
+      { playerId: A, count: 1 },
+      { playerId: B, count: 1 },
+      { playerId: C, count: 1 },
+    ]);
+    // Which is over the goal, and that is the correct answer rather than an error:
+    // completion is total >= goal (reachesGoal), so the run reads as done.
+    expect(contribSum(rows)).toBe(3);
+  });
+});
+
 describe("cleanItemOwnerRows", () => {
   const KEYS = ["prim", "pegasian", "eternal"];
 

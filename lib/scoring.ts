@@ -13,6 +13,7 @@ import {
   BRIDGES,
   TILE_RULES,
   TILE_TRACKING,
+  TILE_PARTY,
   FREE_SPACE,
   type Region,
   type Bridge,
@@ -401,6 +402,20 @@ export function altOf(target: { id?: string } | null | undefined): readonly Item
 }
 
 /**
+ * How many people the objective takes in one sitting; 0 for everything else.
+ *
+ * A party target is finished ONCE, by a named group — a 5-man raid is not five
+ * people's worth of grind, it is one run that five people were in. The goal still
+ * says whether it happened (1), so this number is not a goal and nothing about
+ * completion reads it: it only tells the leader editor to ask "who was in the group"
+ * instead of "how many each", and the drawer how many of the group are credited.
+ * See TILE_PARTY in lib/board-data.ts.
+ */
+export function partyOf(target: { id?: string } | null | undefined): number {
+  return (target?.id ? TILE_PARTY[target.id] : 0) ?? 0;
+}
+
+/**
  * How many of the thing the target asks for, in order of authority:
  *   1. TILE_TRACKING.sets[0]    — one set's length, NOT the total number of boxes
  *   2. TILE_TRACKING.items      — one per named part, all required
@@ -447,6 +462,11 @@ export interface ProgressSpec {
   /** row labels for the set grid, index-aligned with each set's items */
   slots: readonly string[];
   alt: readonly ItemDef[];
+  /**
+   * Group size for a target that is one run by N people, 0 for everything else.
+   * Not a goal and not a cap: it shapes how a leader enters WHO did it. See partyOf.
+   */
+  party: number;
   /** unit word for the bulk readout ("laps"), "" when there isn't one */
   unit: string;
   /** the shared free-text box this target asks for, if any */
@@ -475,6 +495,7 @@ export function progressSpec(target: Target | Tile | Bridge): ProgressSpec {
     sets: setsOf(t),
     slots: slotsOf(t),
     alt: altOf(t),
+    party: partyOf(t),
     note: trackingOf(t.id)?.note ?? null,
     unit: t.i?.hr?.u ?? "",
     quick: goal >= 1000 ? [100, 1000] : goal >= 100 ? [10, 50] : [1, 5],
