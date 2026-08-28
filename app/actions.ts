@@ -27,6 +27,7 @@ import {
   type Target,
 } from "@/lib/scoring";
 import { cleanProofRows, PROOF_MAX_ROWS, type ProofLink } from "@/lib/proof";
+import { cleanRivalName, isRivalMarkable } from "@/lib/rival";
 import {
   cleanContribRows,
   cleanItemOwnerRows,
@@ -854,6 +855,163 @@ export async function forceRegionCompletion(regionId: string, done: boolean) {
   } else {
     await clearTiles(db, ids);
   }
+  refresh();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Rival board — the other team's board, tracked off screenshots.
+//
+// Leader-only writes, everyone reads, and every one of these actions bumps
+// rival_board.updated_at so the page can say how fresh the intel is. Nothing here
+// touches OUR board: the two done-sets never meet outside the compare view, which
+// only reads.
+//
+// The board row is the feature switch. Its absence is what hides the tab, so
+// startRivalTracking and stopRivalTracking are the only two actions that change
+// what the team can see; the rest are no-ops without it and say so.
+// ---------------------------------------------------------------------------
+
+/** Does a rival board exist? Every mark action needs this before it writes. */
+async function rivalTracking(db: SupabaseClient): Promise<boolean> {
+  const { data } = await db.from("rival_board").select("id").maybeSingle();
+  return !!data;
+}
+
+/** Stamp the board as touched. Called by every write that changes a mark. */
+async function touchRival(db: SupabaseClient, playerId: string | null) {
+  await db
+    .from("rival_board")
+    .update({ updated_at: new Date().toISOString(), updated_by: playerId })
+    .eq("id", true);
+}
+
+/**
+ * Turn tracking on, with the name of the board being tracked. Idempotent: setting
+ * it up when it already exists is a rename, which is what a leader who taps START
+ * on an existing board means.
+ */
+export async function startRivalTracking(name: string) {
+  const id = await requirePlayer();
+  if (!(await actingLeader())) return { error: "Leader only." };
+
+  // The SAME cleaner the setup form runs, so a client that validated its input can
+  // only get an error back for something genuinely exceptional.
+  const clean = cleanRivalName(name);
+  if (!clean) return { error: "Give the board a name." };
+
+  const db = admin();
+  const { error } = await db.from("rival_board").upsert({
+    id: true,
+    name: clean,
+    updated_at: new Date().toISOString(),
+    updated_by: id,
+  });
+  if (error) return { error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+/** Rename the tracked board. Separate from start so it can't create one by accident. */
+export async function renameRivalBoard(name: string) {
+  const id = await requirePlayer();
+  if (!(await actingLeader())) return { error: "Leader only." };
+
+  const clean = cleanRivalName(name);
+  if (!clean) return { error: "Give the board a name." };
+
+  const db = admin();
+  if (!(await rivalTracking(db))) return { error: "Rival tracking isn't set up." };
+
+  const { error } = await db
+    .from("rival_board")
+    .update({ name: clean, updated_at: new Date().toISOString(), updated_by: id })
+    .eq("id", true);
+  if (error) return { error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Mark or unmark one tile on the rival board.
+ *
+ * A plain toggle, with none of logProgress's machinery: there is no goal to count
+ * up to, no contributor to credit, and completion is not sticky here — a leader who
+ * misreads a screenshot has to be able to take the mark straight back off.
+ */
+export async function setRivalTile(tileId: string, done: boolean) {
+  const id = await requirePlayer();
+  if (!(await actingLeader())) return { error: "Leader only." };
+  if (!isRivalMarkable(tileId)) return { error: "That tile can't be marked." };
+
+  const db = admin();
+  if (!(await rivalTracking(db))) return { error: "Rival tracking isn't set up." };
+
+  const { error } = done
+    ? await db
+        .from("rival_completions")
+        .upsert({ tile_id: tileId, marked_at: new Date().toISOString(), marked_by: id })
+    : await db.from("rival_completions").delete().eq("tile_id", tileId);
+  if (error) return { error: error.message };
+  await touchRival(db, id);
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Mark or clear a whole region at once — a screenshot usually shows a region, not a
+ * tile, so this is the shape the marking actually arrives in.
+ */
+export async function setRivalRegion(regionId: string, done: boolean) {
+  const id = await requirePlayer();
+  if (!(await actingLeader())) return { error: "Leader only." };
+
+  const region = REGIONS.find((r) => r.id === regionId);
+  if (!region) return { error: "Unknown region." };
+
+  const db = admin();
+  if (!(await rivalTracking(db))) return { error: "Rival tracking isn't set up." };
+
+  const ids = region.tiles.map((t) => t.id).filter((tid) => isRivalMarkable(tid));
+  const now = new Date().toISOString();
+  const { error } = done
+    ? await db
+        .from("rival_completions")
+        .upsert(ids.map((tid) => ({ tile_id: tid, marked_at: now, marked_by: id })))
+    : await db.from("rival_completions").delete().in("tile_id", ids);
+  if (error) return { error: error.message };
+  await touchRival(db, id);
+  refresh();
+  return { ok: true };
+}
+
+/** Wipe every mark but keep tracking (and the name) switched on. */
+export async function clearRivalBoard() {
+  const id = await requirePlayer();
+  if (!(await actingLeader())) return { error: "Leader only." };
+
+  const db = admin();
+  if (!(await rivalTracking(db))) return { error: "Rival tracking isn't set up." };
+
+  // .neq on the primary key rather than a bare delete: supabase-js refuses an
+  // unfiltered delete, and this is the filter that matches every row.
+  const { error } = await db.from("rival_completions").delete().neq("tile_id", "");
+  if (error) return { error: error.message };
+  await touchRival(db, id);
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Turn tracking off entirely — the board, its name and every mark, and with them
+ * the RIVAL tab for the whole team. The marks go with it via the cascade in
+ * migration 0008, which is the only reason this is a single statement.
+ */
+export async function stopRivalTracking() {
+  if (!(await actingLeader())) return { error: "Leader only." };
+  const db = admin();
+  const { error } = await db.from("rival_board").delete().eq("id", true);
+  if (error) return { error: error.message };
   refresh();
   return { ok: true };
 }

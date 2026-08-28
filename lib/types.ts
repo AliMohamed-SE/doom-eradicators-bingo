@@ -2,6 +2,7 @@
 // client components can use them.
 import type { RareId } from "./board-data";
 import type { ProofLink } from "./proof";
+import type { RivalBoardState } from "./rival";
 import type { EventState, Intent } from "./scoring";
 
 export interface PlayerRow {
@@ -44,6 +45,18 @@ export interface AppSnapshot {
   players: PlayerRow[];
   completionMeta: Record<string, CompletionMeta>;
   state: SerializableState;
+  /**
+   * The rival board, or null when no leader has set tracking up. Null is what
+   * hides the RIVAL tab from the team — see components/header.tsx. Already
+   * serializable (its done-set is an id array), so it crosses the boundary as-is.
+   */
+  rival: RivalBoardState | null;
+  /**
+   * Tables whose read failed on the server. Non-empty means this snapshot is
+   * INCOMPLETE, and the app must say so rather than render it as the truth —
+   * see components/load-warning.tsx and the note on read() in lib/data.ts.
+   */
+  failedReads: string[];
 }
 
 /** Rebuild the runtime EventState (with a Set) on the client. */

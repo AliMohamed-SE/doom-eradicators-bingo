@@ -13,13 +13,18 @@ import { useRouter } from "next/navigation";
 import type { AppSnapshot, PlayerRow } from "@/lib/types";
 import { toEventState } from "@/lib/types";
 import { completionAfter } from "@/lib/scoring";
+import { rivalDone } from "@/lib/rival";
 import type { EventState, Intent } from "@/lib/scoring";
+import type { RivalBoardState } from "@/lib/rival";
 import type { ProofLink } from "@/lib/proof";
 
 type Drawer =
   | { kind: "tile"; id: string }
   | { kind: "region"; id: string }
   | { kind: "planpick"; id: string }
+  // Compare has no id: there is only ever one rival board, and the sheet reads
+  // both done-sets straight off this provider.
+  | { kind: "compare" }
   | null;
 
 interface AppContextValue {
@@ -30,6 +35,18 @@ interface AppContextValue {
   canBeLeader: boolean;
   state: EventState;
   completionMeta: AppSnapshot["completionMeta"];
+  /**
+   * The tracked rival board, or null when tracking is off. Null hides the RIVAL
+   * tab and the COMPARE button; it is the feature's only switch.
+   */
+  rival: RivalBoardState | null;
+  /** the rival's completed tiles, in the shape every lib/scoring function takes */
+  rivalDone: ReadonlySet<string>;
+  /**
+   * Tables that failed to load server-side. Non-empty means everything else on
+   * this context is incomplete — components/load-warning.tsx is what says so.
+   */
+  failedReads: string[];
   playerName: (id: string | null | undefined) => string;
   playerById: (id: string) => PlayerRow | undefined;
 
@@ -50,6 +67,7 @@ interface AppContextValue {
   openTile: (id: string) => void;
   openRegion: (id: string) => void;
   openPlanPick: (id: string) => void;
+  openCompare: () => void;
   closeDrawer: () => void;
 
   pending: boolean;
@@ -85,6 +103,7 @@ export function AppProvider({
   }, [initial]);
 
   const state = useMemo(() => toEventState(snapshot.state), [snapshot.state]);
+  const rivalDoneSet = useMemo(() => rivalDone(snapshot.rival), [snapshot.rival]);
 
   const byId = useMemo(() => {
     const m = new Map<string, PlayerRow>();
@@ -124,6 +143,9 @@ export function AppProvider({
     canBeLeader: snapshot.canBeLeader,
     state,
     completionMeta: snapshot.completionMeta,
+    rival: snapshot.rival,
+    rivalDone: rivalDoneSet,
+    failedReads: snapshot.failedReads,
     playerName,
     playerById,
     region,
@@ -135,6 +157,7 @@ export function AppProvider({
     openTile: (id) => setDrawer({ kind: "tile", id }),
     openRegion: (id) => setDrawer({ kind: "region", id }),
     openPlanPick: (id) => setDrawer({ kind: "planpick", id }),
+    openCompare: () => setDrawer({ kind: "compare" }),
     closeDrawer: () => setDrawer(null),
     pending,
     run,
@@ -300,4 +323,44 @@ export function patchItem(
       state: { ...base.state, items: { ...base.state.items, [tileId]: row } },
     };
   };
+}
+
+// ---------------------------------------------------------------------------
+// Rival board patches.
+//
+// Much simpler than the ones above, because the rival board is much simpler: no
+// goal, no contributors, no sticky completion. A mark is a set membership, so the
+// patch is a set membership — there is no shared rule for these to keep in step
+// with, only the assignment the action is about to make.
+//
+// They are not optional, for the same reason patchItem isn't: this skin has no
+// tap-highlight, and a leader ticking their way through a screenshot needs each
+// tap to land before the round trip or they tap it again.
+// ---------------------------------------------------------------------------
+
+/** One tile marked or unmarked on the rival board. No-op when tracking is off. */
+export function patchRivalTile(tileId: string, done: boolean) {
+  return (s: AppSnapshot): AppSnapshot => {
+    if (!s.rival) return s;
+    const ids = new Set(s.rival.doneIds);
+    if (done) ids.add(tileId);
+    else ids.delete(tileId);
+    return { ...s, rival: { ...s.rival, doneIds: [...ids] } };
+  };
+}
+
+/** A whole region marked or cleared at once, mirroring setRivalRegion. */
+export function patchRivalRegion(tileIds: readonly string[], done: boolean) {
+  return (s: AppSnapshot): AppSnapshot => {
+    if (!s.rival) return s;
+    const ids = new Set(s.rival.doneIds);
+    tileIds.forEach((id) => (done ? ids.add(id) : ids.delete(id)));
+    return { ...s, rival: { ...s.rival, doneIds: [...ids] } };
+  };
+}
+
+/** The board's name, typed by a leader and echoed straight back into the header. */
+export function patchRivalName(name: string) {
+  return (s: AppSnapshot): AppSnapshot =>
+    s.rival ? { ...s, rival: { ...s.rival, name } } : s;
 }

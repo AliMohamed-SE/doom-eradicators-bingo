@@ -14,6 +14,8 @@ const TABLES = [
   "tile_completions",
   "tile_intents",
   "focus",
+  "rival_board",
+  "rival_completions",
 ];
 
 /** Refreshes server components whenever any mutable table changes elsewhere. */

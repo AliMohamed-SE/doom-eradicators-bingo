@@ -17,19 +17,28 @@ const TABS = [
 ];
 
 export function Header() {
-  const { me, isLeader, canBeLeader, state, run } = useApp();
+  const { me, isLeader, canBeLeader, state, rival, pending, run } = useApp();
   const confirm = useConfirm();
   const pathname = usePathname();
   const score = scoreOf(state.done);
 
-  const tabs = isLeader
-    ? [
-        ...TABS,
-        { href: "/roster", label: "ROSTER" },
-        { href: "/contrib", label: "CONTRIB" },
-        { href: "/report", label: "REPORT" },
-      ]
-    : TABS;
+  /*
+   * RIVAL is the one conditional tab in here, and the condition is two-sided: a
+   * leader always sees it (that tab is where tracking is switched on), and everyone
+   * else only once a board exists. Hiding it from the team until then is the point
+   * — an empty RIVAL tab would advertise a feature nobody had decided to use yet.
+   */
+  const tabs = [
+    ...TABS,
+    ...(rival || isLeader ? [{ href: "/rival", label: "RIVAL" }] : []),
+    ...(isLeader
+      ? [
+          { href: "/roster", label: "ROSTER" },
+          { href: "/contrib", label: "CONTRIB" },
+          { href: "/report", label: "REPORT" },
+        ]
+      : []),
+  ];
 
   function unlock() {
     const code = window.prompt("Leader code:");
@@ -115,6 +124,28 @@ export function Header() {
           );
         })}
       </div>
+
+      {/*
+        The one global "the server is working" signal.
+
+        run() has always wrapped every mutation in a transition and exposed
+        `pending`, and until now nothing rendered it — so the gap between tapping
+        something and the refresh landing (a round trip to Supabase and back, a few
+        hundred ms on a good connection) looked identical to the app ignoring you.
+        Optimistic patches hide that for the tiles; everything without one — a
+        leader forcing a region, starting or stopping rival tracking, signing out —
+        had no feedback at all.
+
+        It lives in the sticky header so it is on screen wherever you are, and it
+        is a fixed-height strip rather than a conditional block so nothing on the
+        page shifts when it appears.
+      */}
+      <div className="h-[3px] w-full overflow-hidden bg-transparent" aria-hidden={!pending}>
+        {pending && <div className="working-bar h-full w-full" />}
+      </div>
+      <span className="sr-only" role="status">
+        {pending ? "Saving" : ""}
+      </span>
     </div>
   );
 }

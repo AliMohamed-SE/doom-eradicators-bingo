@@ -31,7 +31,7 @@ LEADER**), checked server-side against `LEADER_CODE`.
 ```
 app/                     routes
   (app)/                 shell: layout + header/tabs, one route per tab
-    board/ planning/ my-tiles/ setup/ rules/ roster/
+    board/ planning/ my-tiles/ setup/ rules/ roster/ contrib/ report/ rival/
   onboarding/            character pick + gear check (first run)
   actions.ts            server actions — every mutation (service-role writes)
 components/              client components (tiles, sheets, views, header, provider)
@@ -39,6 +39,8 @@ lib/
   board-data.ts         static content, copied verbatim from the design reference
   scoring.ts            ALL game logic as pure functions (unit-tested)
   scoring.test.ts       unit tests, incl. a pinned goal for every tile and bridge
+  rival.ts              the rival board: name rule, markable ids, compare (unit-tested)
+  read.ts               one DB read, retried once, and honest about failing (unit-tested)
   data.ts               server-side event-state loader + serializable snapshot
   session.ts            cookie identity + leader-code check (server only)
   types.ts              client-safe shared types
@@ -64,6 +66,14 @@ Rules held to:
   the interactive sheets/buttons call server actions.
 - **Optimistic UI + realtime.** Mutations patch a local snapshot immediately; a Supabase Realtime
   subscription refreshes every other player's view within a second.
+- **A failed read is never rendered as an empty one.** supabase-js *resolves* on failure, so
+  `result.data ?? []` would turn a blip into an empty `tile_completions` — which draws a perfectly
+  healthy board that nobody has finished anything on. Every read goes through `read()` in
+  `lib/read.ts`: it retries once, and if it still fails it returns the table name instead of empty
+  data, which `LoadWarning` puts on screen as a banner. See **Loading and failure states** below.
+- **The server working is always visible.** `run()` in the provider wraps every mutation in a
+  transition, and the header renders that `pending` as a sweeping strip; route transitions get
+  skeletons from `app/loading.tsx` and `app/(app)/loading.tsx`.
 
 ## Local development
 
@@ -78,10 +88,12 @@ Rules held to:
    LEADER_CODE=some-secret-code         # what the leader types to unlock controls
    ```
 4. Apply the schema: run `supabase/migrations/0001_init.sql`, then `0002_discord_auth.sql`, then
-   `0004_tile_items.sql`, then `0005_tile_proofs.sql` in the Supabase **SQL editor** (or
+   `0004_tile_items.sql`, `0005_tile_proofs.sql`, `0006_barrows_sets.sql`,
+   `0007_ballista_monkey_tail.sql` and `0008_rival_board.sql` in the Supabase **SQL editor** (or
    `supabase db push`). These create the tables + read-only RLS, enable Realtime, add the
-   `players.auth_user_id` link column, add the per-item tick table for checklist tiles, and add the
-   proof-links table. (`0003` deletes a player who left; skip it on a fresh database.)
+   `players.auth_user_id` link column, add the per-item tick table for checklist tiles, add the
+   proof-links table, re-key the Barrows tile onto per-brother sets, and add the rival-board
+   tables. (`0003` deletes a player who left; skip it on a fresh database.)
 5. **Enable Discord auth** (see the Discord setup section below), and add your local + prod URLs under
    **Authentication → URL Configuration** (Site URL + `http://localhost:3000/auth/callback` and
    `https://<your-app>.vercel.app/auth/callback` as Redirect URLs).
@@ -128,6 +140,32 @@ Static board content is in code. These tables hold event state (see the migratio
 - `tile_completions (tile_id pk, completed_at, completed_by)` — derived from progress or leader-forced
 - `tile_intents (tile_id, player_id, intent in ('want','ok','no'))` — planning answers
 - `focus (kind in ('region','tile'), target_id)` — leader's team focus
+- `rival_board (id boolean pk = true, name, updated_by, …)` — the tracked rival board. A **singleton**:
+  its existence is the feature switch, and no row means the RIVAL tab does not exist for the team
+- `rival_completions (tile_id pk, board → rival_board on delete cascade, marked_by, …)` — the tiles a
+  leader has marked complete on their board. Cascades off the board row, so stopping tracking cannot
+  leave orphaned marks behind
+
+### The rival board
+
+The other clan runs the same nine-region board, and a leader tracks it off the screenshots they are
+given. It is deliberately the thinnest thing that can be scored — a name and a set of completed tile
+ids. No claims, no per-player progress, no checklists, no proof and no bridges: none of that is
+knowable from outside their clan, and a table shaped for it would have the app claiming to know more
+about their board than a screenshot can tell it.
+
+- **Off by default, and invisible while off.** No `rival_board` row means no RIVAL tab for the team —
+  not an empty one. Leaders always see the tab, because that is where tracking is switched on.
+- **Leaders mark, everyone reads.** Tap a tile to toggle it; MARK ALL / CLEAR do a region at once,
+  which is the shape a screenshot usually arrives in. Completion is *not* sticky here (unlike our
+  board): a misread screenshot has to be undoable.
+- **One scoring rule.** Their points come from the same `scoreOf()` in `lib/scoring.ts` that scores
+  ours. That is the only reason the two totals are comparable.
+- **COMPARE is read-only.** It opens a visual-only board marking every tile BOTH / US / THEM / — with
+  a legend, per-state tallies and the points delta. Anyone can open it; it imports no action and has
+  nothing clickable inside, so there is nothing for a non-leader to get wrong.
+- **Nothing on the tab writes to our board.** The two done-sets only ever meet inside the compare
+  view, which reads.
 
 ### How progress is entered
 
@@ -218,6 +256,29 @@ That is what makes raising a tile's goal safe: a tile finished at 1/1 whose goal
 its completion, and since region unlock is reachability over completed bridges, one lost completion
 could otherwise re-lock nine tiles. The shared `completionAfter()` is called by both the server action
 and the optimistic client patch so the two cannot disagree.
+
+## Loading and failure states
+
+Three separate things used to look identical from the outside — a slow load, a broken read, and a
+board on which genuinely nothing had happened. Each now has its own signal:
+
+| What is happening | What you see |
+| --- | --- |
+| Cold load, the layout is fetching | `app/loading.tsx` — the chrome plus a pulsing 9×9 board skeleton |
+| Switching tabs | `app/(app)/loading.tsx` — content skeleton, header and score stay put |
+| A mutation is in flight | the sweeping strip under the nav bar, driven by `run()`'s `pending` |
+| A read failed twice | the red **INCOMPLETE BOARD** banner naming the tables, with a RELOAD button |
+
+The failure path is the important one. `read(table, hint, query)` takes a query *factory* — a
+supabase query builder is thenable and single-use, so a retry that reused the builder would silently
+be no retry at all — attempts it twice, and on persistent failure returns `{ data: null, failed:
+table }` rather than empty rows. `loadAppData` collects those names into `AppData.failedReads`, which
+rides the snapshot to `LoadWarning`. A throw (DNS, aborted socket) is treated exactly like a resolved
+error, so it retries too instead of escaping to the caller. `lib/read.test.ts` pins all of it,
+including the rule that a failed read must never come back as `[]`.
+
+If you ever see the board load empty and a reload fix it, that banner is what should have told you
+why — check the server log for the `read <table> failed:` line it prints alongside.
 
 ## Security model
 

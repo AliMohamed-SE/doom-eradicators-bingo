@@ -1,11 +1,13 @@
 import "server-only";
 import { cache } from "react";
 import { admin } from "./supabase/admin";
+import { read } from "./read";
 import { getAuthUser } from "./auth";
 import { hasLeaderCode } from "./session";
 import { isLeaderPlayer } from "./board-data";
 import type { EventState, Intent } from "./scoring";
 import type { ProofLink } from "./proof";
+import type { RivalBoardState } from "./rival";
 import type { RareId } from "./board-data";
 import type { PlayerRow, CompletionMeta, AppSnapshot } from "./types";
 
@@ -24,6 +26,14 @@ export interface AppData {
   state: EventState;
   /** tileId -> completion timestamp + who forced it (for the drawer completion panel) */
   completionMeta: Record<string, CompletionMeta>;
+  /** the tracked rival board, or null when no leader has set tracking up */
+  rival: RivalBoardState | null;
+  /**
+   * Tables whose read failed even after a retry. Empty on a healthy load. Anything
+   * in here means everything below is INCOMPLETE rather than empty, and the app
+   * says so out loud rather than rendering a confidently wrong board.
+   */
+  failedReads: string[];
 }
 
 /**
@@ -37,44 +47,70 @@ export async function loadAppData(): Promise<AppData> {
   const supabase = admin();
   const [user, codeOk] = await Promise.all([getAuthUser(), hasLeaderCode()]);
 
-  const [players, claims, progress, items, notes, completions, intents, focus, proofs] =
-    await Promise.all([
-      supabase
-        .from("players")
-        .select("id, name, is_leader, rares, task, auth_user_id")
-        .order("name"),
-      supabase.from("tile_claims").select("tile_id, player_id"),
+  const [
+    players,
+    claims,
+    progress,
+    items,
+    notes,
+    completions,
+    intents,
+    focus,
+    proofs,
+    rivalBoard,
+    rivalMarks,
+  ] = await Promise.all([
+    read("players", "", () =>
+      supabase.from("players").select("id, name, is_leader, rares, task, auth_user_id").order("name"),
+    ),
+    read("tile_claims", "", () => supabase.from("tile_claims").select("tile_id, player_id")),
+    read("tile_progress", "", () =>
       supabase.from("tile_progress").select("tile_id, player_id, count"),
+    ),
+    read("tile_items", "is migration 0004 applied?", () =>
       supabase.from("tile_items").select("tile_id, item_key, player_id"),
+    ),
+    read("tile_notes", "is migration 0004 applied?", () =>
       supabase.from("tile_notes").select("tile_id, note"),
+    ),
+    read("tile_completions", "", () =>
       supabase.from("tile_completions").select("tile_id, completed_at, completed_by"),
+    ),
+    read("tile_intents", "", () =>
       supabase.from("tile_intents").select("tile_id, player_id, intent"),
-      supabase.from("focus").select("kind, target_id"),
-      // Ordered here so the grouping below preserves display order without sorting.
-      supabase
-        .from("tile_proofs")
-        .select("id, tile_id, title, url, ord")
-        .order("tile_id")
-        .order("ord"),
-    ]);
+    ),
+    read("focus", "", () => supabase.from("focus").select("kind, target_id")),
+    // Ordered here so the grouping below preserves display order without sorting.
+    read("tile_proofs", "is migration 0005 applied?", () =>
+      supabase.from("tile_proofs").select("id, tile_id, title, url, ord").order("tile_id").order("ord"),
+    ),
+    // Singleton by construction (see migration 0008), so maybeSingle is the honest
+    // read: no row means no leader has set rival tracking up.
+    read<{ name: string; updated_at: string }>("rival_board", "is migration 0008 applied?", () =>
+      supabase.from("rival_board").select("name, updated_at").maybeSingle(),
+    ),
+    read("rival_completions", "is migration 0008 applied?", () =>
+      supabase.from("rival_completions").select("tile_id"),
+    ),
+  ]);
 
-  // supabase-js resolves rather than throws, so a missing table reads exactly like
-  // an empty one. Say so out loud — "0004 has not been applied" and "nobody has
-  // ticked anything" look identical on the board otherwise.
-  if (items.error || notes.error) {
-    console.error(
-      "tile_items / tile_notes read failed (is migration 0004 applied?):",
-      items.error?.message ?? notes.error?.message,
-    );
-  }
-  // Same trap, one migration later: "0005 has not been applied" and "no leader has
-  // attached any proof yet" are indistinguishable on the board otherwise.
-  if (proofs.error) {
-    console.error(
-      "tile_proofs read failed (is migration 0005 applied?):",
-      proofs.error.message,
-    );
-  }
+  // Which reads came back broken, after the retry inside read(). Anything in here
+  // means the snapshot below is INCOMPLETE, not empty — see the note on read().
+  const failedReads = [
+    players,
+    claims,
+    progress,
+    items,
+    notes,
+    completions,
+    intents,
+    focus,
+    proofs,
+    rivalBoard,
+    rivalMarks,
+  ]
+    .map((r) => r.failed)
+    .filter((t): t is string => !!t);
 
   const rawPlayers = players.data ?? [];
   const playerRows: PlayerRow[] = rawPlayers.map((p) => ({
@@ -150,6 +186,16 @@ export async function loadAppData(): Promise<AppData> {
     focusTiles,
   };
 
+  // The board row is the switch: no row, no rival board, and the marks (which
+  // cascade off it) cannot outlive it.
+  const rival: RivalBoardState | null = rivalBoard.data
+    ? {
+        name: rivalBoard.data.name,
+        doneIds: (rivalMarks.data ?? []).map((m) => m.tile_id),
+        updatedAt: rivalBoard.data.updated_at,
+      }
+    : null;
+
   const me = myId ? (playerRows.find((p) => p.id === myId) ?? null) : null;
   const canBeLeader = me ? isLeaderPlayer(me) : false;
 
@@ -161,6 +207,8 @@ export async function loadAppData(): Promise<AppData> {
     players: playerRows,
     state,
     completionMeta,
+    rival,
+    failedReads,
   };
 }
 
@@ -183,5 +231,7 @@ export function toSnapshot(data: AppData): AppSnapshot {
       focusRegions: [...data.state.focusRegions],
       focusTiles: [...data.state.focusTiles],
     },
+    rival: data.rival,
+    failedReads: data.failedReads,
   };
 }

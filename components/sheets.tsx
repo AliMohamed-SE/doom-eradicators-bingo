@@ -4,6 +4,7 @@ import { useApp } from "./app-provider";
 import { TileSheet } from "./tile-sheet";
 import { RegionSheet } from "./region-sheet";
 import { PlanPickSheet } from "./plan-pick-sheet";
+import { CompareSheet } from "./compare-sheet";
 
 export function Sheets() {
   const { drawer } = useApp();
@@ -11,5 +12,6 @@ export function Sheets() {
   if (drawer.kind === "tile") return <TileSheet id={drawer.id} />;
   if (drawer.kind === "region") return <RegionSheet id={drawer.id} />;
   if (drawer.kind === "planpick") return <PlanPickSheet id={drawer.id} />;
+  if (drawer.kind === "compare") return <CompareSheet />;
   return null;
 }

@@ -3,6 +3,7 @@ import { getAppData, toSnapshot } from "@/lib/data";
 import { AppProvider } from "@/components/app-provider";
 import { ConfirmProvider } from "@/components/confirm";
 import { Header } from "@/components/header";
+import { LoadWarning } from "@/components/load-warning";
 import { Sheets } from "@/components/sheets";
 import { Realtime } from "@/components/realtime";
 
@@ -19,6 +20,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Realtime />
         <div className="pb-[44px]">
           <Header />
+          {/* Above the content on purpose: a warning under the fold about data
+              being missing is a warning nobody reads. */}
+          <LoadWarning />
           <main className="mx-auto max-w-[1280px] p-3">{children}</main>
         </div>
         <Sheets />
