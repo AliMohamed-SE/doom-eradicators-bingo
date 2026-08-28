@@ -1,18 +1,20 @@
+import { Shimmer, PanelSkeleton } from "@/components/skeleton";
+
 /**
- * First-load skeleton for the whole shell.
+ * Cold-start skeleton for the shell.
  *
  * The (app) layout awaits getAppData() before it can render anything, which is a
  * Supabase round trip. Until now that gap was an unpainted page, so a slow load
- * and a broken app looked the same from the outside — and the natural response to
- * a blank screen is to reload, which is exactly the habit this app wants to stop
- * (see components/load-warning.tsx for the other half of that story).
+ * and a broken app looked identical from outside — and the natural response to a
+ * blank screen is to reload, which is the habit components/load-warning.tsx exists
+ * to make unnecessary.
  *
- * Deliberately shaped like the real chrome — header block, tab row, region grid —
- * so the content lands into the layout it was already occupying instead of
- * shoving the page around when it arrives.
- *
- * There is a nested app/(app)/loading.tsx as well: this one is the cold start,
- * that one keeps the header on screen when you switch tabs.
+ * Deliberately ROUTE-AGNOSTIC. This boundary sits above the route segments, so it
+ * fires before anything knows whether /board or /contrib is being loaded — which
+ * means it must not promise a shape. It draws the chrome (which every tab has) and
+ * one neutral panel, and nothing else. The board grid, the card grids and the
+ * document stacks belong to the per-route loading.tsx files under app/(app)/,
+ * where the shape is actually known.
  */
 export default function Loading() {
   return (
@@ -23,54 +25,25 @@ export default function Loading() {
             <div className="font-mono text-[15px] tracking-[.5px] text-orange [text-shadow:2px_2px_0_#000]">
               DOOM ERADICATORS
             </div>
-            <div className="mt-1 h-[13px] w-[110px] animate-pulse bg-surface-btn" />
+            <Shimmer className="mt-1 h-[13px] w-[110px]" />
           </div>
-          <div className="h-[46px] w-[92px] animate-pulse border-2 border-border-default bg-surface-inset" />
+          <Shimmer className="h-[46px] w-[92px]" />
         </div>
-        <div className="mx-auto flex max-w-[1280px] gap-[6px] p-[0_8px_8px]">
+        <div className="mx-auto flex max-w-[1280px] gap-[6px] overflow-hidden p-[0_8px_8px]">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[42px] w-[92px] animate-pulse border-2 border-border-default bg-surface-dark"
-            />
+            <Shimmer key={i} delay={i * 60} className="h-[42px] w-[92px] flex-none" />
           ))}
         </div>
+        {/* Same strip the header shows while a mutation is in flight, so a cold
+            load and a working app read as the same kind of "busy". */}
         <div className="h-[3px] w-full overflow-hidden">
           <div className="working-bar h-full w-full" />
         </div>
       </div>
 
       <main className="mx-auto max-w-[1280px] p-3">
-        <div className="mb-3 flex items-center gap-2 border-2 border-border-default bg-surface-inset p-[10px_12px]">
-          <span className="font-mono text-[11px] text-ink-dim">LOADING THE BOARD…</span>
-        </div>
-        <BoardSkeleton />
+        <PanelSkeleton lines={3} />
       </main>
-    </div>
-  );
-}
-
-/** Nine region panels of nine tiles — the shape /board settles into. */
-export function BoardSkeleton() {
-  return (
-    <div className="grid gap-[6px] board:grid-cols-3">
-      {Array.from({ length: 9 }).map((_, r) => (
-        <div key={r} className="region-gradient border-2 border-border-default p-[9px]">
-          <div className="mb-[10px] h-[14px] w-[120px] animate-pulse bg-surface-btn" />
-          <div className="grid grid-cols-3 gap-[4px]">
-            {Array.from({ length: 9 }).map((_, t) => (
-              <div key={t} className="aspect-square">
-                <div
-                  className="h-full w-full animate-pulse border border-tile-locked-border bg-tile-locked-bg"
-                  /* Staggered so the grid reads as loading rather than as one
-                     block flashing — 81 cells pulsing in lockstep is a strobe. */
-                  style={{ animationDelay: `${((r * 9 + t) % 12) * 70}ms` }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

@@ -264,8 +264,8 @@ board on which genuinely nothing had happened. Each now has its own signal:
 
 | What is happening | What you see |
 | --- | --- |
-| Cold load, the layout is fetching | `app/loading.tsx` — the chrome plus a pulsing 9×9 board skeleton |
-| Switching tabs | `app/(app)/loading.tsx` — content skeleton, header and score stay put |
+| Cold load, the layout is fetching | `app/loading.tsx` — the chrome plus one neutral panel. Route-agnostic on purpose: this boundary fires before anything knows which tab is loading, so it must not promise a shape |
+| Switching tabs | a per-route `loading.tsx`, header and score staying put. Only `/board`, `/planning` and `/rival` get the 9×9 board skeleton — `/contrib` and `/roster` get card grids, `/my-tiles` a list, `/rules` and `/report` document stacks, `/setup` a form. A skeleton is a promise about what is arriving, and a board pulsing where a table is about to land is a broken one. Primitives live in `components/skeleton.tsx` |
 | A mutation is in flight | the sweeping strip under the nav bar, driven by `run()`'s `pending` |
 | A read failed twice | the red **INCOMPLETE BOARD** banner naming the tables, with a RELOAD button |
 
