@@ -293,7 +293,7 @@ export const REGIONS: Region[] = [
       i: { need: 1, c: "e", d: [{ n: "Wintertodt supply crate — either drop", r: 909, k: 15, u: "crate rolls" }], note: "Tome of fire 1/1,000 and dragon axe 1/10,000 — either clears the tile, so ≈ 1/909 a roll. Rolls scale with points, about 2 a crate at 1,000+ points." } }),
     t("Yamama", "Get 2x Oathplate Pieces", { s: "Yama", r: "Individual Oathplate piece 1/600 at 100% contribution; or guaranteed via the Oathplate contract.", w: "https://oldschool.runescape.wiki/w/Yama",
       i: { need: 2, c: "w", d: [{ n: "Yama — direct drop (solo)", r: 200, k: 5 }], note: "Solo unique table is 1/120, then 3/5 of those are oathplate — about 1/200 a kill. The Contract of oathplate acquisition is a guaranteed piece if anyone can clear it." } }),
-    t("Big Cox", "Complete a 3+2+2 CM", { s: "Chambers of Xeric: CM", r: "N/A — challenge", w: "https://oldschool.runescape.wiki/w/Chambers_of_Xeric/Challenge_Mode", ch: 1 }),
+    t("Big Cox", "Complete a 3+22 CM", { s: "Chambers of Xeric: CM", r: "N/A — challenge", w: "https://oldschool.runescape.wiki/w/Chambers_of_Xeric/Challenge_Mode", ch: 1 }),
     t("Where's your Maul?", "Get 1x Dragon Warhammer", { s: "Lizardman Shaman", r: "1/5,000", w: "https://oldschool.runescape.wiki/w/Dragon_warhammer",
       i: { need: 1, c: "w", d: [
         { n: "Lizardman shamans (Molch island)", r: 5000, k: 90 },
@@ -774,9 +774,10 @@ export const TILE_TRACKING: Record<string, TileTracking> = {
  * A handful of objectives are not a grind anyone accumulates — they are one run that
  * simply cannot happen with fewer people. "Complete a Theatre of Blood 5-man in gear
  * not over 5m per person" is finished once, by five named people, and all five did
- * it. The tile's goal stays 1 (it either happened or it did not), so the ordinary
- * numbers grid would have a leader typing 1 into five boxes and then reading
- * "SUM 5 / 1 · 4 OVER" — a warning about the correct answer.
+ * it; a 3+22 CM is a trio, and all three of them were in the raid. The tile's goal
+ * stays 1 (it either happened or it did not), so the ordinary numbers grid would have
+ * a leader typing 1 into five boxes and then reading "SUM 5 / 1 · 4 OVER" — a
+ * warning about the correct answer.
  *
  * So the leader editor swaps the numbers for a "who was in the group" list and
  * credits each member 1, and the drawer says how many of the party are credited
@@ -792,6 +793,7 @@ export const TILE_TRACKING: Record<string, TileTracking> = {
  * the actual raid knows better than this table does.
  */
 export const TILE_PARTY: Record<string, number> = {
+  big_cox: 3,
   the_416_special: 5,
 };
 

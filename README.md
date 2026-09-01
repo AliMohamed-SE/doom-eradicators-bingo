@@ -193,8 +193,9 @@ Two extras hang off `TILE_TRACKING`:
   which one.
 
 A separate map, `TILE_PARTY`, marks the targets that are one run by a **group** and says how many
-people that takes — today just The 416 Special, a ToB 5-man, at 5. It is not a goal and nothing about
-completion reads it: the tile's goal still just says whether the run happened. It tells the leader
+people that takes — today The 416 Special (a ToB 5-man) at 5 and Big Cox (a 3+22 CM trio) at 3. It is
+not a goal and nothing about completion reads it: the tile's goal still just says whether the run
+happened. It tells the leader
 editor to ask *who was in the group* instead of *how many each*, and the drawer to print
 "Group tile · 5 of 5 credited" rather than a raw `5 / 1`. Kept out of `TILE_TRACKING` deliberately —
 that map is about a target's boxes, it is mirrored key-for-key by migration `0004`, and membership in

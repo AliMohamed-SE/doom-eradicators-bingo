@@ -336,13 +336,17 @@ describe("the ballista is all four parts", () => {
  * are about the number staying separate from the goal.
  */
 describe("party targets", () => {
-  it("knows how many the 416 takes, and that nobody else is one", () => {
+  it("knows how many each one takes, and that nothing else is one", () => {
+    // A ToB 5-man and a CM trio. Both are challenge tiles, so both have a goal of 1
+    // and the party size is the only thing that says how many people were there.
     expect(partyOf(target("the_416_special"))).toBe(5);
     expect(progressSpec(target("the_416_special"))).toMatchObject({
       mode: "count",
       goal: 1,
       party: 5,
     });
+    expect(partyOf(target("big_cox"))).toBe(3);
+    expect(progressSpec(target("big_cox"))).toMatchObject({ mode: "count", goal: 1, party: 3 });
     expect(partyOf(target("kraken_me_up"))).toBe(0);
     expect(partyOf(null)).toBe(0);
     expect(progressSpec(target("kraken_me_up")).party).toBe(0);
